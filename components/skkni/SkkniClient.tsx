@@ -435,8 +435,8 @@ export function SkkniClient({ userRole }: SkkniClientProps) {
       {/* Tabel Utama SKKNI (Header Bold Besar, Judul Rata Kiri, Kolom Lain Center, Zebra Striping) */}
       <div className="rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-[13px]">
-            <thead className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[13.5px] font-bold text-black dark:text-white">
+          <table className="w-full text-[14px]">
+            <thead className="bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[14.5px] font-bold text-black dark:text-white">
               <tr>
                 <th className="px-3 py-3.5 text-center w-14">No</th>
                 <th className="px-4 py-3.5 text-center w-52">

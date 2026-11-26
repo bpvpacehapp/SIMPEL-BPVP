@@ -141,7 +141,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </div>
 
               {/* Inner Div Pembungkus Message (Putih bersih di Light / Gelap pekat di Dark) */}
-              <div className="rounded-xl bg-white dark:bg-slate-950 px-3.5 py-2.5 text-[13px] font-normal leading-relaxed text-black dark:text-slate-100">
+              <div className="rounded-xl bg-white dark:bg-slate-950 px-3.5 py-2.5 text-[14px] font-normal leading-relaxed text-black dark:text-slate-100">
                 {renderHighlightedMessage(toast.message)}
               </div>
             </div>

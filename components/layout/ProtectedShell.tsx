@@ -143,7 +143,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
           <Link
             href="/dashboard"
             title="Dashboard"
-            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors ${
+            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors ${
               collapsed ? "justify-center px-0" : ""
             } ${
               isDashboardActive
@@ -202,7 +202,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                 <button
                   type="button"
                   onClick={() => setAdminGroupOpen((o) => !o)}
-                  className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13px] font-semibold transition-colors cursor-pointer ${
+                  className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[14px] font-semibold transition-colors cursor-pointer ${
                     isAdministrasiActive
                       ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-white"
                       : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -223,7 +223,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                   <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
                     <Link
                       href="/administrasi/skkni"
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
+                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
                         isSkkniActive
                           ? "bg-blue-600 text-white"
                           : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -237,7 +237,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                       <>
                         <Link
                           href="/admin/users"
-                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
                             isUsersActive
                               ? "bg-blue-600 text-white"
                               : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -248,7 +248,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                         </Link>
                         <Link
                           href="/admin/logs"
-                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
                             isLogsActive
                               ? "bg-blue-600 text-white"
                               : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -284,7 +284,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                 <p className="text-[11px] text-black/65 dark:text-slate-400 leading-tight">
                   Hak Akses
                 </p>
-                <p className="text-[13px] font-semibold text-black dark:text-white truncate leading-snug">
+                <p className="text-[14px] font-semibold text-black dark:text-white truncate leading-snug">
                   {roleLabel}
                 </p>
               </div>
@@ -295,7 +295,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
             type="button"
             title="Keluar Aplikasi"
             onClick={() => void performAppSignOut("/login")}
-            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[13px] font-semibold text-black dark:text-slate-200 hover:bg-rose-600 hover:border-rose-600 hover:text-white transition-colors cursor-pointer ${
+            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[14px] font-semibold text-black dark:text-slate-200 hover:bg-rose-600 hover:border-rose-600 hover:text-white transition-colors cursor-pointer ${
               collapsed ? "px-0" : ""
             }`}
           >
