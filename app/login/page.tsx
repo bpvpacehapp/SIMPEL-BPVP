@@ -56,8 +56,12 @@ function LoginContent() {
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-blue-950 p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
         <div className="bg-slate-900 px-8 py-7 text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400 ring-1 ring-blue-500/30">
-            <ShieldCheck className="h-6 w-6" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-white p-2 shadow-sm">
+            <img
+              src="/logo-kemnaker.png"
+              alt="Logo SIMPEL BPVP"
+              className="h-full w-full object-contain"
+            />
           </div>
           <h1 className="text-xl font-bold tracking-tight text-white">
             {APP_NAME}

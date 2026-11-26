@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: process.env.NEXT_PUBLIC_APP_NAME || "SIMPEL BPVP",
   description:
     "Sistem Informasi Manajemen Pelatihan — Ekosistem Digital BPVP Banda Aceh",
+  icons: {
+    icon: "/logo-kemnaker.png",
+    shortcut: "/logo-kemnaker.png",
+    apple: "/logo-kemnaker.png",
+  },
 };
 
 export default function RootLayout({

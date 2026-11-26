@@ -28,14 +28,23 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-900">
-          Selamat Datang, {user.nama}
-        </h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Sistem Informasi Manajemen Pelatihan (SIMPEL BPVP) — Ekosistem Digital
-          BPVP Banda Aceh.
-        </p>
+      <div className="flex items-center gap-4">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-2">
+          <img
+            src="/logo-kemnaker.png"
+            alt="Logo SIMPEL BPVP"
+            className="h-full w-full object-contain"
+          />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-black dark:text-white">
+            Selamat Datang, {user.nama}
+          </h1>
+          <p className="mt-0.5 text-sm text-black/75 dark:text-slate-300">
+            Sistem Informasi Manajemen Pelatihan (SIMPEL BPVP) — Ekosistem
+            Digital BPVP Banda Aceh.
+          </p>
+        </div>
       </div>
 
       {/* Kartu Ringkasan */}

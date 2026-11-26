@@ -104,8 +104,12 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
         >
           {!collapsed && (
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white">
-                <IconShieldFill className="h-4 w-4" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1">
+                <img
+                  src="/logo-kemnaker.png"
+                  alt="Logo SIMPEL BPVP"
+                  className="h-full w-full object-contain"
+                />
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-bold tracking-tight text-black dark:text-white truncate">
@@ -306,7 +310,11 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
         <header className="shrink-0 z-30 h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 md:px-7 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="flex items-center gap-2 md:hidden">
-              <IconShieldFill className="h-5 w-5 text-blue-600" />
+              <img
+                src="/logo-kemnaker.png"
+                alt="Logo SIMPEL BPVP"
+                className="h-6 w-6 object-contain"
+              />
               <span className="font-bold text-sm text-black dark:text-white">
                 {APP_NAME}
               </span>
