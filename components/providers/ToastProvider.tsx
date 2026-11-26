@@ -40,24 +40,22 @@ const ToastContext = createContext<ToastContextValue>({
   dismissToast: () => {},
 });
 
-function renderHighlightedMessage(text: string, type: ToastType) {
+function renderHighlightedMessage(text: string) {
   const parts = text.split(/(\*[^*]+\*)/g);
-  const highlightClass =
-    type === "error"
-      ? "font-semibold text-white bg-rose-700 dark:bg-rose-600 px-1.5 py-0.5 rounded-md mx-0.5"
-      : type === "info"
-        ? "font-semibold text-white bg-blue-700 dark:bg-blue-600 px-1.5 py-0.5 rounded-md mx-0.5"
-        : "font-semibold text-white bg-emerald-700 dark:bg-emerald-600 px-1.5 py-0.5 rounded-md mx-0.5";
 
   return parts.map((part, idx) => {
     if (part.startsWith("*") && part.endsWith("*") && part.length > 2) {
       return (
-        <span key={idx} className={highlightClass}>
+        <strong key={idx} className="font-bold text-black dark:text-white">
           {part.slice(1, -1)}
-        </span>
+        </strong>
       );
     }
-    return <span key={idx}>{part}</span>;
+    return (
+      <span key={idx} className="font-normal">
+        {part}
+      </span>
+    );
   });
 }
 
@@ -143,8 +141,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </div>
 
               {/* Inner Div Pembungkus Message (Putih bersih di Light / Gelap pekat di Dark) */}
-              <div className="rounded-xl bg-white dark:bg-slate-950 px-3.5 py-2.5 text-[13px] leading-relaxed text-black dark:text-slate-100">
-                {renderHighlightedMessage(toast.message, toast.type)}
+              <div className="rounded-xl bg-white dark:bg-slate-950 px-3.5 py-2.5 text-[13px] font-normal leading-relaxed text-black dark:text-slate-100">
+                {renderHighlightedMessage(toast.message)}
               </div>
             </div>
           );
