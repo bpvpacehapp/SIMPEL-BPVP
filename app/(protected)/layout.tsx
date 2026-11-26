@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
+import { getEffectiveUserMenus } from "@/lib/rbac";
 import { SessionTracker } from "@/components/layout/SessionTracker";
 import { ProtectedShell } from "@/components/layout/ProtectedShell";
 
@@ -16,10 +17,17 @@ export default async function ProtectedLayout({
     redirect("/login");
   }
 
+  const allowedMenus = await getEffectiveUserMenus(
+    session.user.id,
+    session.user.role
+  );
+
   return (
     <>
       <SessionTracker />
-      <ProtectedShell user={session.user}>{children}</ProtectedShell>
+      <ProtectedShell user={session.user} allowedMenus={allowedMenus}>
+        {children}
+      </ProtectedShell>
     </>
   );
 }

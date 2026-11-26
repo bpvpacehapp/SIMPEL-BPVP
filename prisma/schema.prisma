@@ -10,6 +10,7 @@ datasource db {
 enum Role {
   SUPER_ADMIN
   ADMIN
+  ADMIN_SUB_UNIT
   USER
 }
 
@@ -32,7 +33,8 @@ model User {
   createdAt      DateTime  @default(now()) @map("created_at")
   updatedAt      DateTime  @updatedAt @map("updated_at")
 
-  logs           LogAktivitas[]
+  logs            LogAktivitas[]
+  menuPermissions UserMenuPermission[]
 
   @@index([deletedAt])
   @@map("users")
@@ -97,4 +99,29 @@ model SkkniUnit {
   @@index([documentId])
   @@index([code])
   @@map("skkni_units")
+}
+
+model RoleMenuPermission {
+  id        String   @id @default(cuid())
+  role      Role
+  menuKey   String   @map("menu_key")
+  allowed   Boolean  @default(false)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([role, menuKey])
+  @@index([role])
+  @@map("role_menu_permissions")
+}
+
+model UserMenuPermission {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  menuKey   String   @map("menu_key")
+  allowed   Boolean
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, menuKey])
+  @@index([userId])
+  @@map("user_menu_permissions")
 }

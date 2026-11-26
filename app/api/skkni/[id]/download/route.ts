@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canUserAccessMenu } from "@/lib/rbac";
 
 const SKKNI_DOWNLOAD_BASE =
   "https://skkni-api.kemnaker.go.id/v1/public/documents";
@@ -17,6 +18,17 @@ export async function GET(
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+  const allowed = await canUserAccessMenu(
+    session.user.id,
+    session.user.role,
+    "administrasi.skkni"
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { message: "Anda tidak memiliki izin mengunduh dokumen SKKNI." },
+      { status: 403 }
+    );
   }
 
   const { id } = await context.params;

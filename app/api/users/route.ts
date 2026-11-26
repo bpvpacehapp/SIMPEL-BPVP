@@ -5,7 +5,12 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { catatLogAktivitas, extractClientIp } from "@/lib/audit";
 
-const VALID_ROLES: Role[] = [Role.SUPER_ADMIN, Role.ADMIN, Role.USER];
+const VALID_ROLES: Role[] = [
+  Role.SUPER_ADMIN,
+  Role.ADMIN,
+  Role.ADMIN_SUB_UNIT,
+  Role.USER,
+];
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);

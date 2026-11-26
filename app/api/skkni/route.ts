@@ -3,11 +3,24 @@ import { getServerSession } from "next-auth";
 import type { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { canUserAccessMenu } from "@/lib/rbac";
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await canUserAccessMenu(
+    session.user.id,
+    session.user.role,
+    "administrasi.skkni"
+  );
+  if (!allowed) {
+    return NextResponse.json(
+      { message: "Anda tidak memiliki izin mengakses menu SKKNI." },
+      { status: 403 }
+    );
   }
 
   const sp = req.nextUrl.searchParams;

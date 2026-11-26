@@ -109,8 +109,8 @@ export function UnitsModal({
               Tidak ada unit kompetensi yang cocok.
             </div>
           ) : (
-            <table className="w-full text-[14px]">
-              <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[14.5px] font-bold text-black dark:text-white">
+            <table className="w-full text-[13.5px]">
+              <thead className="sticky top-0 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 text-[14px] font-bold text-black dark:text-white">
                 <tr>
                   <th className="px-4 py-3 text-center w-14">No</th>
                   <th className="px-4 py-3 text-center w-48">Kode Unit</th>

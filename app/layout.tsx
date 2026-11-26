@@ -30,7 +30,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id" className={poppins.variable} suppressHydrationWarning>
-      <body className="font-sans antialiased min-h-screen bg-[#f4f6f9] dark:bg-[#0b1120] text-black dark:text-slate-100 text-[15px]">
+      <body className="font-sans antialiased min-h-screen bg-[#f4f6f9] dark:bg-[#0b1120] text-black dark:text-slate-100 text-[14.5px]">
         <ThemeProvider>
           <ToastProvider>
             <SessionProvider>{children}</SessionProvider>

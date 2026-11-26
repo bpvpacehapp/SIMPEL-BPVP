@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@prisma/client";
+import type { MenuKey } from "@/lib/rbac";
 import { performAppSignOut } from "@/lib/auth-sync";
 import { useTheme, type ThemeMode } from "@/components/providers/ThemeProvider";
 import {
@@ -33,12 +34,14 @@ interface ProtectedShellProps {
     jabatan?: string | null;
     unitKerja?: string | null;
   };
+  allowedMenus: MenuKey[];
   children: ReactNode;
 }
 
 const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "Super Administrator",
   ADMIN: "Administrator",
+  ADMIN_SUB_UNIT: "Admin Sub Unit",
   USER: "Pengguna",
 };
 
@@ -52,10 +55,18 @@ const THEME_OPTIONS: Array<{
   { mode: "system", label: "Perangkat", icon: IconMonitorFill },
 ];
 
-export function ProtectedShell({ user, children }: ProtectedShellProps) {
+export function ProtectedShell({
+  user,
+  allowedMenus,
+  children,
+}: ProtectedShellProps) {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
-  const isAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  const canDashboard = allowedMenus.includes("dashboard");
+  const canSkkni = allowedMenus.includes("administrasi.skkni");
+  const canUsers = allowedMenus.includes("administrasi.users");
+  const canLogs = allowedMenus.includes("administrasi.logs");
+  const hasAnyAdministrasi = canSkkni || canUsers || canLogs;
   const roleLabel = ROLE_LABEL[user.role] || "Pengguna";
 
   const [collapsed, setCollapsed] = useState(false);
@@ -137,41 +148,45 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
           </button>
         </div>
 
-        {/* Navigation (Font lebih ringkas + Icon Fill) */}
+        {/* Navigation (Font lebih ringkas + Icon Fill + Filter RBAC) */}
         <nav className="flex-1 overflow-y-auto px-2.5 py-3.5 space-y-1">
           {/* Dashboard */}
-          <Link
-            href="/dashboard"
-            title="Dashboard"
-            className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors ${
-              collapsed ? "justify-center px-0" : ""
-            } ${
-              isDashboardActive
-                ? "bg-blue-600 text-white"
-                : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-            }`}
-          >
-            <IconDashboardFill className="h-4 w-4 shrink-0" />
-            {!collapsed && <span className="truncate">Dashboard</span>}
-          </Link>
+          {canDashboard && (
+            <Link
+              href="/dashboard"
+              title="Dashboard"
+              className={`flex items-center gap-2.5 rounded-xl px-3 py-2 text-[13.5px] font-medium transition-colors ${
+                collapsed ? "justify-center px-0" : ""
+              } ${
+                isDashboardActive
+                  ? "bg-blue-600 text-white"
+                  : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+              }`}
+            >
+              <IconDashboardFill className="h-4 w-4 shrink-0" />
+              {!collapsed && <span className="truncate">Dashboard</span>}
+            </Link>
+          )}
 
-          {/* Sub-Menu: Administrasi */}
-          <div className="pt-1">
-            {collapsed ? (
-              <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-2">
-                <Link
-                  href="/administrasi/skkni"
-                  title="Administrasi — SKKNI"
-                  className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
-                    isSkkniActive
-                      ? "bg-blue-600 text-white"
-                      : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <IconDocumentFill className="h-4 w-4" />
-                </Link>
-                {isAdmin && (
-                  <>
+          {/* Sub-Menu: Administrasi (hanya tampil jika minimal 1 sub-item diizinkan) */}
+          {hasAnyAdministrasi && (
+            <div className="pt-1">
+              {collapsed ? (
+                <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-2">
+                  {canSkkni && (
+                    <Link
+                      href="/administrasi/skkni"
+                      title="Administrasi — SKKNI"
+                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
+                        isSkkniActive
+                          ? "bg-blue-600 text-white"
+                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <IconDocumentFill className="h-4 w-4" />
+                    </Link>
+                  )}
+                  {canUsers && (
                     <Link
                       href="/admin/users"
                       title="Administrasi — Manajemen User"
@@ -183,6 +198,8 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                     >
                       <IconUsersFill className="h-4 w-4" />
                     </Link>
+                  )}
+                  {canLogs && (
                     <Link
                       href="/admin/logs"
                       title="Administrasi — Log Aktivitas"
@@ -194,50 +211,50 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                     >
                       <IconHistoryFill className="h-4 w-4" />
                     </Link>
-                  </>
-                )}
-              </div>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setAdminGroupOpen((o) => !o)}
-                  className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[14px] font-semibold transition-colors cursor-pointer ${
-                    isAdministrasiActive
-                      ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-white"
-                      : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5 min-w-0">
-                    <IconFolderAdminFill className="h-4 w-4 shrink-0" />
-                    <span className="truncate">Administrasi</span>
-                  </span>
-                  <IconChevronDownFill
-                    className={`h-3.5 w-3.5 shrink-0 text-black/60 dark:text-slate-400 transition-transform duration-200 ${
-                      adminGroupOpen ? "rotate-180" : ""
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setAdminGroupOpen((o) => !o)}
+                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+                      isAdministrasiActive
+                        ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-white"
+                        : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
-                  />
-                </button>
-
-                {adminGroupOpen && (
-                  <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
-                    <Link
-                      href="/administrasi/skkni"
-                      className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
-                        isSkkniActive
-                          ? "bg-blue-600 text-white"
-                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <IconFolderAdminFill className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Administrasi</span>
+                    </span>
+                    <IconChevronDownFill
+                      className={`h-3.5 w-3.5 shrink-0 text-black/60 dark:text-slate-400 transition-transform duration-200 ${
+                        adminGroupOpen ? "rotate-180" : ""
                       }`}
-                    >
-                      <IconDocumentFill className="h-4 w-4 shrink-0" />
-                      <span className="truncate">SKKNI</span>
-                    </Link>
+                    />
+                  </button>
 
-                    {isAdmin && (
-                      <>
+                  {adminGroupOpen && (
+                    <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
+                      {canSkkni && (
+                        <Link
+                          href="/administrasi/skkni"
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
+                            isSkkniActive
+                              ? "bg-blue-600 text-white"
+                              : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <IconDocumentFill className="h-4 w-4 shrink-0" />
+                          <span className="truncate">SKKNI</span>
+                        </Link>
+                      )}
+
+                      {canUsers && (
                         <Link
                           href="/admin/users"
-                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
                             isUsersActive
                               ? "bg-blue-600 text-white"
                               : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -246,9 +263,12 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                           <IconUsersFill className="h-4 w-4 shrink-0" />
                           <span className="truncate">Manajemen User</span>
                         </Link>
+                      )}
+
+                      {canLogs && (
                         <Link
                           href="/admin/logs"
-                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[14px] font-medium transition-colors ${
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
                             isLogsActive
                               ? "bg-blue-600 text-white"
                               : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
@@ -257,13 +277,13 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                           <IconHistoryFill className="h-4 w-4 shrink-0" />
                           <span className="truncate">Log Aktivitas</span>
                         </Link>
-                      </>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </nav>
 
         {/* Kotak Role + Tombol Logout di Akhir Sidebar (menempel di bawah tanpa celah) */}
@@ -284,7 +304,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                 <p className="text-[11px] text-black/65 dark:text-slate-400 leading-tight">
                   Hak Akses
                 </p>
-                <p className="text-[14px] font-semibold text-black dark:text-white truncate leading-snug">
+                <p className="text-[13.5px] font-semibold text-black dark:text-white truncate leading-snug">
                   {roleLabel}
                 </p>
               </div>
@@ -295,7 +315,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
             type="button"
             title="Keluar Aplikasi"
             onClick={() => void performAppSignOut("/login")}
-            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[14px] font-semibold text-black dark:text-slate-200 hover:bg-rose-600 hover:border-rose-600 hover:text-white transition-colors cursor-pointer ${
+            className={`w-full inline-flex items-center justify-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 text-[13.5px] font-semibold text-black dark:text-slate-200 hover:bg-rose-600 hover:border-rose-600 hover:text-white transition-colors cursor-pointer ${
               collapsed ? "px-0" : ""
             }`}
           >
@@ -359,53 +379,57 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
         {/* Mobile Navigation */}
         <div className="flex md:hidden items-center justify-between gap-2 px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
           <div className="flex items-center gap-2">
-            <Link
-              href="/dashboard"
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
-                isDashboardActive
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
-              }`}
-            >
-              <IconDashboardFill className="h-3.5 w-3.5" />
-              Dashboard
-            </Link>
-            <Link
-              href="/administrasi/skkni"
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
-                isSkkniActive
-                  ? "bg-blue-600 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
-              }`}
-            >
-              <IconDocumentFill className="h-3.5 w-3.5" />
-              SKKNI
-            </Link>
-            {isAdmin && (
-              <>
-                <Link
-                  href="/admin/users"
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
-                    isUsersActive
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
-                  }`}
-                >
-                  <IconUsersFill className="h-3.5 w-3.5" />
-                  Manajemen User
-                </Link>
-                <Link
-                  href="/admin/logs"
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
-                    isLogsActive
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
-                  }`}
-                >
-                  <IconHistoryFill className="h-3.5 w-3.5" />
-                  Log Aktivitas
-                </Link>
-              </>
+            {canDashboard && (
+              <Link
+                href="/dashboard"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isDashboardActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconDashboardFill className="h-3.5 w-3.5" />
+                Dashboard
+              </Link>
+            )}
+            {canSkkni && (
+              <Link
+                href="/administrasi/skkni"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isSkkniActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconDocumentFill className="h-3.5 w-3.5" />
+                SKKNI
+              </Link>
+            )}
+            {canUsers && (
+              <Link
+                href="/admin/users"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isUsersActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconUsersFill className="h-3.5 w-3.5" />
+                Manajemen User
+              </Link>
+            )}
+            {canLogs && (
+              <Link
+                href="/admin/logs"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isLogsActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconHistoryFill className="h-3.5 w-3.5" />
+                Log Aktivitas
+              </Link>
             )}
           </div>
           <button
