@@ -360,19 +360,23 @@ export function SkkniClient({ userRole }: SkkniClientProps) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-          <select
+          <SearchableSelect
             value={availabilityFilter}
-            onChange={(e) => {
+            onChange={(val) => {
               setPage(1);
-              setAvailabilityFilter(e.target.value);
+              setAvailabilityFilter(val || "applied");
             }}
-            aria-label="Filter Status"
-            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="applied">Status: Berlaku</option>
-            <option value="cancelled">Status: Dicabut</option>
-            <option value="semua">Status: Semua</option>
-          </select>
+            options={[
+              { value: "applied", label: "Status: Berlaku" },
+              { value: "cancelled", label: "Status: Dicabut" },
+              { value: "semua", label: "Status: Semua" },
+            ]}
+            placeholder="Status: Berlaku"
+            searchable={false}
+            clearable={false}
+            showResetOption={false}
+            ariaLabel="Filter Status"
+          />
 
           <SearchableSelect
             value={yearFilter}
@@ -552,28 +556,28 @@ export function SkkniClient({ userRole }: SkkniClientProps) {
                         </button>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <select
-                          defaultValue=""
+                        <SearchableSelect
+                          value=""
                           disabled={!canManage || busy}
-                          onChange={(e) => {
-                            const val = e.target.value as
-                              | "UPDATE"
-                              | "ADD"
-                              | "SKIP"
-                              | "";
+                          onChange={(val) => {
                             if (!val) return;
-                            void handleLocalRowAction(doc, val);
-                            e.target.value = "";
+                            void handleLocalRowAction(
+                              doc,
+                              val as "UPDATE" | "ADD" | "SKIP"
+                            );
                           }}
-                          className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1.5 text-xs font-normal text-black dark:text-slate-100 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                        >
-                          <option value="" disabled>
-                            {busy ? "Memproses..." : "Pilih Aksi"}
-                          </option>
-                          <option value="UPDATE">Update Dokumen</option>
-                          <option value="ADD">Tambah Data</option>
-                          <option value="SKIP">Lewati</option>
-                        </select>
+                          options={[
+                            { value: "UPDATE", label: "Update Dokumen" },
+                            { value: "ADD", label: "Tambah Data" },
+                            { value: "SKIP", label: "Lewati" },
+                          ]}
+                          placeholder={busy ? "Memproses..." : "Pilih Aksi"}
+                          searchable={false}
+                          clearable={false}
+                          showResetOption={false}
+                          size="sm"
+                          ariaLabel={`Aksi untuk ${doc.numberKepmen}`}
+                        />
                       </td>
                     </tr>
                   );

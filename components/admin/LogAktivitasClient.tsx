@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { PaginationBar } from "@/components/ui/PaginationBar";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   IconHistoryFill,
   IconSearchFill,
@@ -259,37 +260,39 @@ export function LogAktivitasClient() {
           />
         </div>
 
-        <select
-          value={modulFilter}
-          onChange={(e) => {
-            setPage(1);
-            setModulFilter(e.target.value);
-          }}
-          className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-        >
-          <option value="">Semua Modul</option>
-          {filterOptions.moduls.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
+        <div className="w-full lg:w-52 shrink-0">
+          <SearchableSelect
+            value={modulFilter}
+            onChange={(val) => {
+              setPage(1);
+              setModulFilter(val);
+            }}
+            options={filterOptions.moduls.map((m) => ({
+              value: m,
+              label: m,
+            }))}
+            placeholder="Semua Modul"
+            searchable={false}
+            ariaLabel="Filter Modul"
+          />
+        </div>
 
-        <select
-          value={aksiFilter}
-          onChange={(e) => {
-            setPage(1);
-            setAksiFilter(e.target.value);
-          }}
-          className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-        >
-          <option value="">Semua Aksi</option>
-          {filterOptions.aksis.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
+        <div className="w-full lg:w-52 shrink-0">
+          <SearchableSelect
+            value={aksiFilter}
+            onChange={(val) => {
+              setPage(1);
+              setAksiFilter(val);
+            }}
+            options={filterOptions.aksis.map((a) => ({
+              value: a,
+              label: a,
+            }))}
+            placeholder="Semua Aksi"
+            searchable={false}
+            ariaLabel="Filter Aksi"
+          />
+        </div>
 
         {hasFilter && (
           <button

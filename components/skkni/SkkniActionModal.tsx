@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { UnitsModal, type SkkniUnitItem } from "@/components/skkni/UnitsModal";
 import { PaginationBar } from "@/components/ui/PaginationBar";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/providers/ToastProvider";
 import {
   IconCloseFill,
@@ -777,22 +778,29 @@ export function SkkniActionModal({
                                   </button>
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  <select
+                                  <SearchableSelect
                                     value={currentAction}
-                                    onChange={(e) =>
+                                    onChange={(val) =>
                                       setActionsMap((prev) => ({
                                         ...prev,
-                                        [doc.id]: e.target.value as RowAction,
+                                        [doc.id]: val as RowAction,
                                       }))
                                     }
-                                    className="rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-2.5 py-1.5 text-xs font-normal text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-                                  >
-                                    <option value="UPDATE">
-                                      Update Dokumen
-                                    </option>
-                                    <option value="ADD">Tambah Data</option>
-                                    <option value="SKIP">Lewati</option>
-                                  </select>
+                                    options={[
+                                      {
+                                        value: "UPDATE",
+                                        label: "Update Dokumen",
+                                      },
+                                      { value: "ADD", label: "Tambah Data" },
+                                      { value: "SKIP", label: "Lewati" },
+                                    ]}
+                                    placeholder="Pilih Aksi"
+                                    searchable={false}
+                                    clearable={false}
+                                    showResetOption={false}
+                                    size="sm"
+                                    ariaLabel={`Aksi untuk ${doc.number_kepmen}`}
+                                  />
                                 </td>
                               </tr>
                             );

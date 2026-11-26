@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Role } from "@prisma/client";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import {
   Search,
   UserPlus,
@@ -346,32 +347,43 @@ export function UserManagementClient({
           />
         </div>
 
-        <select
-          value={roleFilter}
-          onChange={(e) => {
-            setPage(1);
-            setRoleFilter(e.target.value);
-          }}
-          className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="">Semua Role</option>
-          <option value="SUPER_ADMIN">SUPER_ADMIN</option>
-          <option value="ADMIN">ADMIN</option>
-          <option value="USER">USER</option>
-        </select>
+        <div className="w-full md:w-48 shrink-0">
+          <SearchableSelect
+            value={roleFilter}
+            onChange={(val) => {
+              setPage(1);
+              setRoleFilter(val);
+            }}
+            options={[
+              { value: "SUPER_ADMIN", label: "SUPER_ADMIN" },
+              { value: "ADMIN", label: "ADMIN" },
+              { value: "USER", label: "USER" },
+            ]}
+            placeholder="Semua Role"
+            searchable={false}
+            ariaLabel="Filter Role"
+          />
+        </div>
 
-        <select
-          value={statusFilter}
-          onChange={(e) => {
-            setPage(1);
-            setStatusFilter(e.target.value);
-          }}
-          className="rounded-xl border border-slate-200 px-3.5 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-        >
-          <option value="semua">Semua Status</option>
-          <option value="aktif">Aktif</option>
-          <option value="nonaktif">Nonaktif</option>
-        </select>
+        <div className="w-full md:w-44 shrink-0">
+          <SearchableSelect
+            value={statusFilter}
+            onChange={(val) => {
+              setPage(1);
+              setStatusFilter(val || "semua");
+            }}
+            options={[
+              { value: "semua", label: "Semua Status" },
+              { value: "aktif", label: "Aktif" },
+              { value: "nonaktif", label: "Nonaktif" },
+            ]}
+            placeholder="Semua Status"
+            searchable={false}
+            clearable={false}
+            showResetOption={false}
+            ariaLabel="Filter Status"
+          />
+        </div>
       </div>
 
       {/* Tabel Users */}
