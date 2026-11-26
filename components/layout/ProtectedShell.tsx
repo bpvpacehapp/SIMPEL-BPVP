@@ -220,7 +220,7 @@ export function ProtectedShell({ user, children }: ProtectedShellProps) {
                 </button>
 
                 {adminGroupOpen && (
-                  <div className="mt-1 ml-3 pl-2.5 border-l border-slate-200 dark:border-slate-800 space-y-1">
+                  <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
                     <Link
                       href="/administrasi/skkni"
                       className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors ${
