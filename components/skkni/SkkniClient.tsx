@@ -5,6 +5,7 @@ import type { Role } from "@prisma/client";
 import { UnitsModal, type SkkniUnitItem } from "@/components/skkni/UnitsModal";
 import { SkkniActionModal } from "@/components/skkni/SkkniActionModal";
 import { PaginationBar } from "@/components/ui/PaginationBar";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { useToast } from "@/components/providers/ToastProvider";
 import {
   IconDownloadFill,
@@ -373,60 +374,57 @@ export function SkkniClient({ userRole }: SkkniClientProps) {
             <option value="semua">Status: Semua</option>
           </select>
 
-          <select
+          <SearchableSelect
             value={yearFilter}
-            onChange={(e) => {
+            onChange={(val) => {
               setPage(1);
-              setYearFilter(e.target.value);
+              setYearFilter(val);
             }}
-            aria-label="Filter Tahun"
-            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="">Semua Tahun</option>
-            {filterOptions.years.map((y) => (
-              <option key={y} value={String(y)}>
-                Tahun {y}
-              </option>
-            ))}
-          </select>
+            options={filterOptions.years.map((y) => ({
+              value: String(y),
+              label: `Tahun ${y}`,
+            }))}
+            placeholder="Semua Tahun"
+            searchPlaceholder="Ketik tahun (misal: 2026)..."
+            emptyText="Tahun tidak ditemukan."
+            ariaLabel="Filter Tahun"
+          />
 
-          <select
+          <SearchableSelect
             value={sectorFilter}
-            onChange={(e) => {
+            onChange={(val) => {
               setPage(1);
-              setSectorFilter(e.target.value);
+              setSectorFilter(val);
             }}
-            aria-label="Filter Sektor"
-            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="">Semua Sektor</option>
-            {filterOptions.sectors.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
+            options={filterOptions.sectors.map((s) => ({
+              value: s,
+              label: s,
+            }))}
+            placeholder="Semua Sektor"
+            searchPlaceholder="Ketik nama sektor..."
+            emptyText="Sektor tidak ditemukan."
+            ariaLabel="Filter Sektor"
+          />
 
-          <select
+          <SearchableSelect
             value={agencyFilter}
-            onChange={(e) => {
+            onChange={(val) => {
               setPage(1);
-              setAgencyFilter(e.target.value);
+              setAgencyFilter(val);
             }}
-            aria-label="Filter Instansi Teknis"
-            className="rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 px-3.5 py-2.5 text-sm font-medium text-black dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-600"
-          >
-            <option value="">
-              {filterOptions.agencies.length > 0
+            options={filterOptions.agencies.map((ag) => ({
+              value: ag,
+              label: ag,
+            }))}
+            placeholder={
+              filterOptions.agencies.length > 0
                 ? "Semua Instansi Teknis"
-                : "Instansi Teknis (Tarik Penuh untuk memuat)"}
-            </option>
-            {filterOptions.agencies.map((ag) => (
-              <option key={ag} value={ag}>
-                {ag}
-              </option>
-            ))}
-          </select>
+                : "Instansi Teknis (Tarik Penuh dulu)"
+            }
+            searchPlaceholder="Ketik nama instansi teknis..."
+            emptyText="Instansi teknis tidak ditemukan."
+            ariaLabel="Filter Instansi Teknis"
+          />
         </div>
       </div>
 
