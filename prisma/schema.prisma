@@ -1,0 +1,100 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  USER
+}
+
+model User {
+  id             String    @id @default(cuid())
+  nama           String
+  email          String    @unique
+  nip            String?   @unique
+  jabatan        String?
+  unitKerja      String?   @map("unit_kerja")
+  subUnitKerja   String?   @map("sub_unit_kerja")
+  role           Role      @default(USER)
+  deletedAt      DateTime? @map("deleted_at")
+  password       String?
+  fotoUrl        String?   @map("foto_url")
+  pegawaiId      String?   @map("pegawai_id")
+  sessionToken   String?   @map("session_token") @db.Text
+  tokenExpiredAt DateTime? @map("token_expired_at")
+  lastLoginAt    DateTime? @map("last_login_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  logs           LogAktivitas[]
+
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model LogAktivitas {
+  id          String   @id @default(cuid())
+  userId      String?  @map("user_id")
+  userName    String?  @map("user_name")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  aksi        String
+  modul       String
+  detail      String?
+  dataSebelum Json?    @map("data_sebelum")
+  dataSesudah Json?    @map("data_sesudah")
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([modul])
+  @@map("log_aktivitas")
+}
+
+model SkkniDocument {
+  id           String      @id // ID UUID asli dari API SKKNI Kemnaker (tidak generate ID baru)
+  number       String?
+  numberKepmen String      @map("number_kepmen")
+  year         Int?
+  sector       String
+  title        String?
+  agencyId     String?     @map("agency_id")
+  agencyName   String?     @map("agency_name")
+  availability String      // "applied" | "cancelled"
+  status       String?
+  notes        String?     @db.Text
+  publishedAt  String?     @map("published_at")
+  fileName     String?     @map("file_name")
+  filePath     String?     @map("file_path")
+  tags         Json?
+  syncedAt     DateTime    @default(now()) @map("synced_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  units        SkkniUnit[]
+
+  @@index([availability])
+  @@index([numberKepmen])
+  @@index([year])
+  @@index([agencyName])
+  @@map("skkni_documents")
+}
+
+model SkkniUnit {
+  id           String        @id // ID UUID asli dari API SKKNI Kemnaker (tidak generate ID baru)
+  documentId   String        @map("document_id")
+  document     SkkniDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  code         String
+  title        String
+  titleEn      String?       @map("title_en")
+  availability String?
+
+  @@index([documentId])
+  @@index([code])
+  @@map("skkni_units")
+}
