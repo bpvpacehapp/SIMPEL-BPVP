@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export type MenuKey =
   | "dashboard"
   | "administrasi.skkni"
+  | "administrasi.proglat"
   | "administrasi.users"
   | "administrasi.logs";
 
@@ -48,6 +49,21 @@ export const APP_MENUS: AppMenuDefinition[] = [
     href: "/administrasi/skkni",
     description:
       "Daftar dokumen SKKNI, pencarian unit kompetensi, dan pengunduhan PDF resmi.",
+    configurable: true,
+    defaultByRole: {
+      SUPER_ADMIN: true,
+      ADMIN: true,
+      ADMIN_SUB_UNIT: false,
+      USER: false,
+    },
+  },
+  {
+    key: "administrasi.proglat",
+    label: "Program Pelatihan",
+    group: "Administrasi",
+    href: "/administrasi/program-pelatihan",
+    description:
+      "Data Program Pelatihan dari Proglat Kemnaker, detail unit kompetensi, penyesuaian manual, dan preview PDF.",
     configurable: true,
     defaultByRole: {
       SUPER_ADMIN: true,

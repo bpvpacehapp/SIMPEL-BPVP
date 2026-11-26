@@ -125,3 +125,50 @@ model UserMenuPermission {
   @@index([userId])
   @@map("user_menu_permissions")
 }
+
+model ProglatProgram {
+  id                  String         @id // UUID asli dari API Proglat Kemnaker (tidak generate ID baru)
+  code                String?
+  title               String
+  totalModules        Int            @default(0) @map("total_modules")
+  totalDuration       Int            @default(0) @map("total_duration")
+  type                String?
+  coverImage          String?        @map("cover_image")
+  downloadMaterialUri String?        @map("download_material_uri")
+  vocationalName      String?        @map("vocational_name")
+  subVocationalName   String?        @map("sub_vocational_name")
+  status              String?
+  version             Int            @default(1)
+  isManualEdited      Boolean        @default(false) @map("is_manual_edited")
+  originalSnapshot    Json?          @map("original_snapshot")
+  syncedAt            DateTime       @default(now()) @map("synced_at")
+  createdAt           DateTime       @default(now()) @map("created_at")
+  updatedAt           DateTime       @updatedAt @map("updated_at")
+
+  topics              ProglatTopic[]
+
+  @@index([code])
+  @@index([type])
+  @@index([vocationalName])
+  @@map("proglat_programs")
+}
+
+model ProglatTopic {
+  id             String         @id // UUID asli dari API Proglat Kemnaker (tidak generate ID baru)
+  programId      String         @map("program_id")
+  program        ProglatProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  code           String?        // Kode SKKNI atau --Spesial (tidak diubah saat edit manual)
+  title          String
+  duration       Int            @default(0)
+  references     String?        @db.Text
+  description    String?        @db.Text
+  type           String?        // "skkni" | "special" | lainnya
+  skkniId        String?        @map("skkni_id")
+  skkniUnitId    String?        @map("skkni_unit_id")
+  isManualEdited Boolean        @default(false) @map("is_manual_edited")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  @@index([programId])
+  @@index([code])
+  @@map("proglat_topics")
+}
