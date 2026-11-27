@@ -128,11 +128,13 @@ model UserMenuPermission {
 
 model ProglatProgram {
   id                  String         @id // UUID asli dari API Proglat Kemnaker (tidak generate ID baru)
+  category            String         @default("UNIT_SKKNI") // "UNIT_SKKNI" | "SOFTSKILL_PRODUKTIVITAS"
   code                String?
   title               String
   totalModules        Int            @default(0) @map("total_modules")
   totalDuration       Int            @default(0) @map("total_duration")
   type                String?
+  publishedAt         DateTime?      @map("published_at")
   coverImage          String?        @map("cover_image")
   downloadMaterialUri String?        @map("download_material_uri")
   vocationalName      String?        @map("vocational_name")
@@ -141,34 +143,53 @@ model ProglatProgram {
   version             Int            @default(1)
   isManualEdited      Boolean        @default(false) @map("is_manual_edited")
   originalSnapshot    Json?          @map("original_snapshot")
+  deletedAt           DateTime?      @map("deleted_at")
   syncedAt            DateTime       @default(now()) @map("synced_at")
   createdAt           DateTime       @default(now()) @map("created_at")
   updatedAt           DateTime       @updatedAt @map("updated_at")
 
   topics              ProglatTopic[]
 
+  @@index([category])
   @@index([code])
   @@index([type])
   @@index([vocationalName])
+  @@index([deletedAt])
   @@map("proglat_programs")
 }
 
 model ProglatTopic {
-  id             String         @id // UUID asli dari API Proglat Kemnaker (tidak generate ID baru)
-  programId      String         @map("program_id")
-  program        ProglatProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
-  code           String?        // Kode SKKNI atau --Spesial (tidak diubah saat edit manual)
+  id             String               @id // UUID asli dari API Proglat Kemnaker (tidak generate ID baru)
+  programId      String               @map("program_id")
+  program        ProglatProgram       @relation(fields: [programId], references: [id], onDelete: Cascade)
+  code           String?              // Kode SKKNI atau --Spesial (tidak diubah saat edit manual)
   title          String
-  duration       Int            @default(0)
-  references     String?        @db.Text
-  description    String?        @db.Text
-  type           String?        // "skkni" | "special" | lainnya
-  skkniId        String?        @map("skkni_id")
-  skkniUnitId    String?        @map("skkni_unit_id")
-  isManualEdited Boolean        @default(false) @map("is_manual_edited")
-  updatedAt      DateTime       @updatedAt @map("updated_at")
+  duration       Int                  @default(0)
+  references     String?              @db.Text
+  description    String?              @db.Text
+  type           String?              // "skkni" | "special" | lainnya
+  jenisUnitId    String?              @map("jenis_unit_id")
+  jenisUnit      JenisUnitKompetensi? @relation(fields: [jenisUnitId], references: [id], onDelete: SetNull)
+  skkniId        String?              @map("skkni_id")
+  skkniUnitId    String?              @map("skkni_unit_id")
+  isManualEdited Boolean              @default(false) @map("is_manual_edited")
+  updatedAt      DateTime             @updatedAt @map("updated_at")
 
   @@index([programId])
   @@index([code])
+  @@index([jenisUnitId])
   @@map("proglat_topics")
+}
+
+model JenisUnitKompetensi {
+  id        String         @id @default(cuid())
+  jenisUnit String         @map("jenis_unit")
+  deletedAt DateTime?      @map("deleted_at")
+  createdAt DateTime       @default(now()) @map("created_at")
+  updatedAt DateTime       @updatedAt @map("updated_at")
+  topics    ProglatTopic[]
+
+  @@index([deletedAt])
+  @@index([jenisUnit])
+  @@map("jenis_unit_kompetensi")
 }

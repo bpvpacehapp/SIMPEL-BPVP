@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canUserAccessMenu } from "@/lib/rbac";
+import { canUserAccessAnyProglat } from "@/lib/rbac";
 
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*\x00-\x1F]/g, "_").trim() || "program.pdf";
@@ -17,10 +17,9 @@ export async function GET(
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const allowed = await canUserAccessMenu(
+  const allowed = await canUserAccessAnyProglat(
     session.user.id,
-    session.user.role,
-    "administrasi.proglat"
+    session.user.role
   );
   if (!allowed) {
     return NextResponse.json({ message: "Forbidden" }, { status: 403 });

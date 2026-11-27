@@ -21,6 +21,7 @@ export interface ExternalProglatProgram {
   total_modules: number;
   total_duration: number;
   type?: string | null;
+  published_at?: string | null; // Waktu terbaru antara updated_at dan created_at
   cover_image?: string | null;
   download_material_uri?: string | null;
   vocational_name?: string | null;
@@ -39,6 +40,8 @@ interface RawProglatProgram {
   total_duration?: number | string | null;
   total_topic_duration?: number | string | null;
   type?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   cover_image?: string | null;
   download_material_uri?: string | null;
   vocational?: { name?: string | null } | null;
@@ -133,6 +136,28 @@ function toSafeInt(val: unknown): number {
   return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
 }
 
+function parseApiTimestamp(val?: string | null): Date | null {
+  if (!val) return null;
+  // Format dari API Proglat: "2026-05-07 13:30:55"
+  const normalized = val.includes("T") ? val : val.replace(" ", "T") + "+07:00";
+  const d = new Date(normalized);
+  if (!Number.isNaN(d.getTime())) return d;
+  const fallback = new Date(val);
+  return Number.isNaN(fallback.getTime()) ? null : fallback;
+}
+
+function resolveLatestPublishIso(
+  createdAt?: string | null,
+  updatedAt?: string | null
+): string | null {
+  const c = parseApiTimestamp(createdAt);
+  const u = parseApiTimestamp(updatedAt);
+  if (c && u) {
+    return (u.getTime() >= c.getTime() ? u : c).toISOString();
+  }
+  return (u || c)?.toISOString() ?? null;
+}
+
 function normalizeProgram(raw: RawProglatProgram): ExternalProglatProgram | null {
   if (!raw?.id) return null;
 
@@ -166,6 +191,7 @@ function normalizeProgram(raw: RawProglatProgram): ExternalProglatProgram | null
       raw.total_duration ?? raw.total_topic_duration ?? 0
     ),
     type: raw.type ? String(raw.type).trim() : null,
+    published_at: resolveLatestPublishIso(raw.created_at, raw.updated_at),
     cover_image: raw.cover_image ?? null,
     download_material_uri: raw.download_material_uri ?? null,
     vocational_name: raw.vocational?.name?.trim() || null,
@@ -173,6 +199,29 @@ function normalizeProgram(raw: RawProglatProgram): ExternalProglatProgram | null
     status: raw.status ?? null,
     version: toSafeInt(raw.version) || 1,
     program_topics: topics,
+  };
+}
+
+/**
+ * Pencarian AJAX cepat (default limit=10) untuk dropdown Combobox di Modal Tambah Program.
+ */
+export async function searchProglatProgramsAjax(
+  keyword: string,
+  limit = 10
+): Promise<{
+  programs: ExternalProglatProgram[];
+  totalFromApi: number;
+}> {
+  const res = await fetchProglatPage(1, limit, 1, keyword);
+  const programs: ExternalProglatProgram[] = [];
+  for (const raw of res.data) {
+    const norm = normalizeProgram(raw);
+    if (norm) programs.push(norm);
+  }
+  rememberProglatPrograms(programs);
+  return {
+    programs,
+    totalFromApi: res.meta?.pagination?.total ?? programs.length,
   };
 }
 

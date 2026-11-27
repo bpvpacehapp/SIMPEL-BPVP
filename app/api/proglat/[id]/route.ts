@@ -83,29 +83,54 @@ export async function PATCH(
 
   try {
     const body = (await req.json()) as {
+      action?: "restore";
       program?: {
         title?: string;
         type?: string | null;
       };
       topic?: {
         id: string;
-        title?: string;
         duration?: number;
-        references?: string | null;
+        jenisUnitId?: string | null;
       };
-      addTopic?: {
-        code?: string | null;
-        title?: string;
+      addSkkniUnit?: {
+        skkniUnitId: string;
         duration?: number;
-        references?: string | null;
-        type?: string | null;
+        jenisUnitId?: string | null;
       };
       deleteTopicId?: string;
     };
 
     const ipAddress = extractClientIp(req.headers);
 
-    // Pengaman untuk data lama yang ditarik sebelum kolom originalSnapshot ada:
+    // 0. Pulihkan program hasil soft delete
+    if (body.action === "restore") {
+      const restored = await prisma.proglatProgram.update({
+        where: { id },
+        data: { deletedAt: null },
+        include: {
+          topics: { orderBy: [{ code: "asc" }, { title: "asc" }] },
+        },
+      });
+
+      await catatLogAktivitas({
+        userId: session.user.id,
+        userName: session.user.nama,
+        aksi: "RESTORE_PROGLAT",
+        modul: "ADMINISTRASI_PROGLAT",
+        detail: `Memulihkan program pelatihan "${restored.title}" (${restored.code || restored.id}).`,
+        dataSebelum: { id: existing.id, deletedAt: existing.deletedAt },
+        dataSesudah: { id: restored.id, deletedAt: null },
+        ipAddress,
+      });
+
+      return NextResponse.json({
+        success: true,
+        data: restored,
+        message: `Program "${restored.title}" berhasil dipulihkan.`,
+      });
+    }
+
     const fallbackSnapshotIfMissing = !existing.originalSnapshot
       ? {
           code: existing.code ?? null,
@@ -121,13 +146,14 @@ export async function PATCH(
             references: t.references ?? null,
             description: t.description ?? null,
             type: t.type ?? null,
+            jenisUnitId: t.jenisUnitId ?? null,
             skkniId: t.skkniId ?? null,
             skkniUnitId: t.skkniUnitId ?? null,
           })),
         }
       : undefined;
 
-    // 1. Update manual level Program (field `code` read-only; totalModules & totalDuration otomatis dari topics)
+    // 1. Update ringkasan program (code, version, publishedAt tetap read-only)
     if (body.program) {
       const nextTitle = body.program.title?.trim() || existing.title;
       const nextType =
@@ -164,16 +190,12 @@ export async function PATCH(
         aksi: "UPDATE_PROGLAT_MANUAL",
         modul: "ADMINISTRASI_PROGLAT",
         detail: `Penyesuaian manual informasi program "${updated.title}" (${updated.code || updated.id})`,
-        dataSebelum: {
-          title: existing.title,
-          type: existing.type,
-        },
+        dataSebelum: { title: existing.title, type: existing.type },
         dataSesudah: {
           title: updated.title,
           type: updated.type,
           totalModules: updated.totalModules,
           totalDuration: updated.totalDuration,
-          isManualEdited: true,
         },
         ipAddress,
       });
@@ -181,11 +203,11 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         data: updated,
-        message: "Informasi program berhasil disesuaikan secara manual.",
+        message: "Informasi program berhasil disimpan.",
       });
     }
 
-    // 2. Update manual 1 Unit Kompetensi (field `code` tetap read-only; otomatis hitung ulang totalModules & totalDuration)
+    // 2. Update langsung Durasi (JP) dan/atau Jenis Unit pada 1 unit kompetensi
     if (body.topic?.id) {
       const targetTopic = existing.topics.find((t) => t.id === body.topic!.id);
       if (!targetTopic) {
@@ -195,16 +217,16 @@ export async function PATCH(
         );
       }
 
-      const nextTitle = body.topic.title?.trim() || targetTopic.title;
       const nextDuration =
         typeof body.topic.duration === "number" &&
         Number.isFinite(body.topic.duration)
           ? Math.max(0, Math.round(body.topic.duration))
           : targetTopic.duration;
-      const nextRefs =
-        body.topic.references !== undefined
-          ? body.topic.references?.trim() || null
-          : targetTopic.references;
+
+      const nextJenisUnitId =
+        body.topic.jenisUnitId !== undefined
+          ? body.topic.jenisUnitId?.trim() || null
+          : targetTopic.jenisUnitId;
 
       const autoModules = existing.topics.length;
       const autoDuration = existing.topics.reduce(
@@ -217,9 +239,8 @@ export async function PATCH(
         prisma.proglatTopic.update({
           where: { id: targetTopic.id },
           data: {
-            title: nextTitle,
             duration: nextDuration,
-            references: nextRefs,
+            jenisUnitId: nextJenisUnitId,
             isManualEdited: true,
           },
         }),
@@ -248,23 +269,17 @@ export async function PATCH(
         userName: session.user.nama,
         aksi: "UPDATE_PROGLAT_TOPIC_MANUAL",
         modul: "ADMINISTRASI_PROGLAT",
-        detail: `Penyesuaian manual unit kompetensi ${targetTopic.code || targetTopic.id} pada program "${existing.title}"`,
+        detail: `Penyesuaian unit ${targetTopic.code || targetTopic.title} pada program "${existing.title}"`,
         dataSebelum: {
           topicId: targetTopic.id,
-          code: targetTopic.code,
-          title: targetTopic.title,
           duration: targetTopic.duration,
-          references: targetTopic.references,
+          jenisUnitId: targetTopic.jenisUnitId,
         },
         dataSesudah: {
           topicId: targetTopic.id,
-          code: targetTopic.code,
-          title: nextTitle,
           duration: nextDuration,
-          references: nextRefs,
-          programTotalModules: autoModules,
+          jenisUnitId: nextJenisUnitId,
           programTotalDuration: autoDuration,
-          isManualEdited: true,
         },
         ipAddress,
       });
@@ -272,29 +287,60 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         data: refreshed,
-        message: `Unit kompetensi ${targetTopic.code || ""} berhasil disesuaikan.`,
+        message: "Unit kompetensi berhasil diperbarui.",
       });
     }
 
-    // 3. Tambah Unit Kompetensi baru secara manual (otomatis hitung ulang totalModules & totalDuration)
-    if (body.addTopic) {
-      const newTitle = body.addTopic.title?.trim() || "";
-      if (!newTitle) {
+    // 3. Tambah Unit Kompetensi dari master SKKNI (`skkni_units`)
+    if (body.addSkkniUnit?.skkniUnitId) {
+      const skkniUnit = await prisma.skkniUnit.findUnique({
+        where: { id: body.addSkkniUnit.skkniUnitId },
+        include: { document: { select: { id: true, numberKepmen: true } } },
+      });
+
+      if (!skkniUnit) {
         return NextResponse.json(
-          { message: "Judul unit kompetensi wajib diisi." },
-          { status: 400 }
+          { message: "Unit kerja SKKNI tidak ditemukan." },
+          { status: 404 }
         );
       }
-      const newCode = body.addTopic.code?.trim() || null;
-      const newDuration =
-        typeof body.addTopic.duration === "number" &&
-        Number.isFinite(body.addTopic.duration)
-          ? Math.max(0, Math.round(body.addTopic.duration))
-          : 0;
-      const newRefs = body.addTopic.references?.trim() || null;
-      const newType = body.addTopic.type?.trim() || "skkni";
-      const newId = randomUUID();
 
+      const duplicate = existing.topics.some(
+        (t) =>
+          (t.skkniUnitId && t.skkniUnitId === skkniUnit.id) ||
+          (t.code &&
+            skkniUnit.code &&
+            t.code.trim().toLowerCase() === skkniUnit.code.trim().toLowerCase())
+      );
+      if (duplicate) {
+        return NextResponse.json(
+          {
+            message: `Unit dengan kode "${skkniUnit.code}" sudah ada pada program ini.`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // Default Jenis Unit -> "Teknis" jika belum dipilih eksplisit
+      let resolvedJenisUnitId = body.addSkkniUnit.jenisUnitId?.trim() || null;
+      if (!resolvedJenisUnitId) {
+        const teknis = await prisma.jenisUnitKompetensi.findFirst({
+          where: {
+            deletedAt: null,
+            jenisUnit: { equals: "Teknis", mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        resolvedJenisUnitId = teknis?.id ?? null;
+      }
+
+      const newDuration =
+        typeof body.addSkkniUnit.duration === "number" &&
+        Number.isFinite(body.addSkkniUnit.duration)
+          ? Math.max(0, Math.round(body.addSkkniUnit.duration))
+          : 0;
+
+      const newId = randomUUID();
       const autoModules = existing.topics.length + 1;
       const autoDuration =
         existing.topics.reduce((acc, t) => acc + (t.duration || 0), 0) +
@@ -305,11 +351,14 @@ export async function PATCH(
           data: {
             id: newId,
             programId: id,
-            code: newCode,
-            title: newTitle,
+            code: skkniUnit.code,
+            title: skkniUnit.title,
             duration: newDuration,
-            references: newRefs,
-            type: newType,
+            references: skkniUnit.document?.numberKepmen ?? null,
+            type: "skkni",
+            jenisUnitId: resolvedJenisUnitId,
+            skkniId: skkniUnit.documentId,
+            skkniUnitId: skkniUnit.id,
             isManualEdited: true,
           },
         }),
@@ -336,20 +385,16 @@ export async function PATCH(
       await catatLogAktivitas({
         userId: session.user.id,
         userName: session.user.nama,
-        aksi: "ADD_PROGLAT_TOPIC_MANUAL",
+        aksi: "ADD_PROGLAT_TOPIC_SKKNI",
         modul: "ADMINISTRASI_PROGLAT",
-        detail: `Penambahan manual unit kompetensi "${newTitle}" pada program "${existing.title}"`,
-        dataSebelum: {
-          totalModules: existing.totalModules,
-          totalDuration: existing.totalDuration,
-        },
+        detail: `Menambahkan unit SKKNI ${skkniUnit.code} ("${skkniUnit.title}") pada program "${existing.title}"`,
         dataSesudah: {
           topicId: newId,
-          code: newCode,
-          title: newTitle,
+          code: skkniUnit.code,
+          title: skkniUnit.title,
+          skkniUnitId: skkniUnit.id,
           duration: newDuration,
-          references: newRefs,
-          type: newType,
+          jenisUnitId: resolvedJenisUnitId,
           programTotalModules: autoModules,
           programTotalDuration: autoDuration,
         },
@@ -359,11 +404,11 @@ export async function PATCH(
       return NextResponse.json({
         success: true,
         data: refreshed,
-        message: `Unit kompetensi "${newTitle}" berhasil ditambahkan.`,
+        message: `Unit SKKNI ${skkniUnit.code} berhasil ditambahkan.`,
       });
     }
 
-    // 4. Hapus Unit Kompetensi (otomatis hitung ulang totalModules & totalDuration)
+    // 4. Hapus Unit Kompetensi
     if (body.deleteTopicId) {
       const targetTopic = existing.topics.find(
         (t) => t.id === body.deleteTopicId
@@ -411,14 +456,12 @@ export async function PATCH(
         userName: session.user.nama,
         aksi: "DELETE_PROGLAT_TOPIC_MANUAL",
         modul: "ADMINISTRASI_PROGLAT",
-        detail: `Penghapusan unit kompetensi "${targetTopic.title}" (${targetTopic.code || targetTopic.id}) pada program "${existing.title}"`,
+        detail: `Menghapus unit "${targetTopic.title}" (${targetTopic.code || targetTopic.id}) pada program "${existing.title}"`,
         dataSebelum: {
           topicId: targetTopic.id,
           code: targetTopic.code,
           title: targetTopic.title,
           duration: targetTopic.duration,
-          totalModules: existing.totalModules,
-          totalDuration: existing.totalDuration,
         },
         dataSesudah: {
           programTotalModules: autoModules,
@@ -441,7 +484,73 @@ export async function PATCH(
   } catch (error) {
     console.error("[API PROGLAT PATCH] Error:", error);
     return NextResponse.json(
-      { message: "Gagal menyimpan penyesuaian manual program pelatihan." },
+      { message: "Gagal menyimpan penyesuaian program pelatihan." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.id) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const allowed = await canUserAccessMenu(
+    session.user.id,
+    session.user.role,
+    "administrasi.proglat"
+  );
+  if (!allowed || session.user.role === "USER") {
+    return NextResponse.json(
+      {
+        message:
+          "Hanya Administrator, Super Administrator, atau Admin Sub Unit berizin yang dapat menghapus program pelatihan.",
+      },
+      { status: 403 }
+    );
+  }
+
+  const { id } = await context.params;
+  const existing = await prisma.proglatProgram.findUnique({
+    where: { id },
+    select: { id: true, code: true, title: true, deletedAt: true },
+  });
+  if (!existing) {
+    return NextResponse.json(
+      { message: "Program pelatihan tidak ditemukan." },
+      { status: 404 }
+    );
+  }
+
+  try {
+    const softDeleted = await prisma.proglatProgram.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    await catatLogAktivitas({
+      userId: session.user.id,
+      userName: session.user.nama,
+      aksi: "SOFT_DELETE_PROGLAT",
+      modul: "ADMINISTRASI_PROGLAT",
+      detail: `Menghapus sementara (soft delete) program pelatihan "${existing.title}" (${existing.code || existing.id}).`,
+      dataSebelum: { id: existing.id, deletedAt: existing.deletedAt },
+      dataSesudah: { id: softDeleted.id, deletedAt: softDeleted.deletedAt },
+      ipAddress: extractClientIp(req.headers),
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Program "${existing.title}" berhasil dihapus sementara.`,
+    });
+  } catch (error) {
+    console.error("[API PROGLAT DELETE] Error:", error);
+    return NextResponse.json(
+      { message: "Gagal menghapus program pelatihan." },
       { status: 500 }
     );
   }

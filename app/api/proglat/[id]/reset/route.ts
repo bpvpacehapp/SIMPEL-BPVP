@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { canUserAccessMenu } from "@/lib/rbac";
+import { canUserAccessAnyProglat } from "@/lib/rbac";
 import { catatLogAktivitas, extractClientIp } from "@/lib/audit";
 import {
   fetchAllProglatPrograms,
@@ -85,10 +85,9 @@ export async function POST(
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 
-  const allowed = await canUserAccessMenu(
+  const allowed = await canUserAccessAnyProglat(
     session.user.id,
-    session.user.role,
-    "administrasi.proglat"
+    session.user.role
   );
   if (!allowed || session.user.role === "USER") {
     return NextResponse.json(
@@ -266,6 +265,7 @@ export async function POST(
             references: t.references ?? null,
             description: t.description ?? null,
             type: t.type ?? null,
+            jenisUnitId: t.jenisUnitId ?? null,
             skkniId: t.skkniId ?? null,
             skkniUnitId: t.skkniUnitId ?? null,
             isManualEdited: false,

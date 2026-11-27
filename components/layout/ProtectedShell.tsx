@@ -21,6 +21,7 @@ import {
   IconMonitorFill,
   IconHistoryFill,
   IconBookFill,
+  IconLayersFill,
 } from "@/components/icons/FilledIcons";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "SIMPEL BPVP";
@@ -65,10 +66,12 @@ export function ProtectedShell({
   const { theme, setTheme } = useTheme();
   const canDashboard = allowedMenus.includes("dashboard");
   const canSkkni = allowedMenus.includes("administrasi.skkni");
+  const canJenisUnit = allowedMenus.includes("administrasi.jenis_unit");
   const canProglat = allowedMenus.includes("administrasi.proglat");
   const canUsers = allowedMenus.includes("administrasi.users");
   const canLogs = allowedMenus.includes("administrasi.logs");
-  const hasAnyAdministrasi = canSkkni || canProglat || canUsers || canLogs;
+  const hasAnyAdministrasi =
+    canSkkni || canJenisUnit || canProglat || canUsers || canLogs;
   const roleLabel = ROLE_LABEL[user.role] || "Pengguna";
 
   const [collapsed, setCollapsed] = useState(false);
@@ -97,13 +100,20 @@ export function ProtectedShell({
 
   const isDashboardActive = pathname === "/dashboard";
   const isSkkniActive = pathname.startsWith("/administrasi/skkni");
+  const isJenisUnitActive = pathname.startsWith(
+    "/administrasi/jenis-unit-kompetensi"
+  );
   const isProglatActive = pathname.startsWith(
     "/administrasi/program-pelatihan"
   );
   const isUsersActive = pathname.startsWith("/admin/users");
   const isLogsActive = pathname.startsWith("/admin/logs");
   const isAdministrasiActive =
-    isSkkniActive || isProglatActive || isUsersActive || isLogsActive;
+    isSkkniActive ||
+    isJenisUnitActive ||
+    isProglatActive ||
+    isUsersActive ||
+    isLogsActive;
 
   return (
     <div className="h-screen w-full flex overflow-hidden bg-[#f4f6f9] dark:bg-[#0b1120] text-black dark:text-slate-100">
@@ -192,6 +202,19 @@ export function ProtectedShell({
                       <IconDocumentFill className="h-4 w-4" />
                     </Link>
                   )}
+                  {canJenisUnit && (
+                    <Link
+                      href="/administrasi/jenis-unit-kompetensi"
+                      title="Administrasi — Jenis Unit Kompetensi"
+                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
+                        isJenisUnitActive
+                          ? "bg-blue-600 text-white"
+                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <IconLayersFill className="h-4 w-4" />
+                    </Link>
+                  )}
                   {canProglat && (
                     <Link
                       href="/administrasi/program-pelatihan"
@@ -267,6 +290,22 @@ export function ProtectedShell({
                         >
                           <IconDocumentFill className="h-4 w-4 shrink-0" />
                           <span className="truncate">SKKNI</span>
+                        </Link>
+                      )}
+
+                      {canJenisUnit && (
+                        <Link
+                          href="/administrasi/jenis-unit-kompetensi"
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
+                            isJenisUnitActive
+                              ? "bg-blue-600 text-white"
+                              : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <IconLayersFill className="h-4 w-4 shrink-0" />
+                          <span className="truncate">
+                            Jenis Unit Kompetensi
+                          </span>
                         </Link>
                       )}
 
@@ -436,6 +475,19 @@ export function ProtectedShell({
               >
                 <IconDocumentFill className="h-3.5 w-3.5" />
                 SKKNI
+              </Link>
+            )}
+            {canJenisUnit && (
+              <Link
+                href="/administrasi/jenis-unit-kompetensi"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isJenisUnitActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconLayersFill className="h-3.5 w-3.5" />
+                Jenis Unit Kompetensi
               </Link>
             )}
             {canProglat && (

@@ -28,6 +28,7 @@ export async function GET(req: NextRequest) {
   const typeParam = sp.get("type")?.trim() || "";
   const vocationalParam = sp.get("vocational")?.trim() || "";
   const editFilter = sp.get("editFilter")?.trim() || "semua";
+  const statusFilter = sp.get("status")?.trim() || "aktif";
   const page = Math.max(1, Number(sp.get("page") || "1") || 1);
   const limit = Math.min(
     50,
@@ -35,6 +36,12 @@ export async function GET(req: NextRequest) {
   );
 
   const where: Prisma.ProglatProgramWhereInput = {};
+
+  if (statusFilter === "aktif") {
+    where.deletedAt = null;
+  } else if (statusFilter === "terhapus") {
+    where.deletedAt = { not: null };
+  }
 
   if (search) {
     where.OR = [
@@ -69,10 +76,15 @@ export async function GET(req: NextRequest) {
     distinctTypes,
     distinctVocationals,
   ] = await Promise.all([
-    prisma.proglatProgram.count(),
-    prisma.proglatTopic.count(),
-    prisma.proglatProgram.aggregate({ _sum: { totalDuration: true } }),
-    prisma.proglatProgram.count({ where: { isManualEdited: true } }),
+    prisma.proglatProgram.count({ where: { deletedAt: null } }),
+    prisma.proglatTopic.count({ where: { program: { deletedAt: null } } }),
+    prisma.proglatProgram.aggregate({
+      where: { deletedAt: null },
+      _sum: { totalDuration: true },
+    }),
+    prisma.proglatProgram.count({
+      where: { deletedAt: null, isManualEdited: true },
+    }),
     prisma.proglatProgram.count({ where }),
     prisma.proglatProgram.findMany({
       where,
@@ -86,10 +98,13 @@ export async function GET(req: NextRequest) {
         totalModules: true,
         totalDuration: true,
         type: true,
+        version: true,
+        publishedAt: true,
         vocationalName: true,
         subVocationalName: true,
         downloadMaterialUri: true,
         isManualEdited: true,
+        deletedAt: true,
         syncedAt: true,
         _count: { select: { topics: true } },
       },

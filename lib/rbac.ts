@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 export type MenuKey =
   | "dashboard"
   | "administrasi.skkni"
+  | "administrasi.jenis_unit"
   | "administrasi.proglat"
   | "administrasi.users"
   | "administrasi.logs";
@@ -58,12 +59,27 @@ export const APP_MENUS: AppMenuDefinition[] = [
     },
   },
   {
+    key: "administrasi.jenis_unit",
+    label: "Jenis Unit Kompetensi",
+    group: "Administrasi",
+    href: "/administrasi/jenis-unit-kompetensi",
+    description:
+      "Master data jenis unit kompetensi (tambah, ubah, soft delete, dan pemulihan).",
+    configurable: true,
+    defaultByRole: {
+      SUPER_ADMIN: true,
+      ADMIN: true,
+      ADMIN_SUB_UNIT: false,
+      USER: false,
+    },
+  },
+  {
     key: "administrasi.proglat",
     label: "Program Pelatihan",
     group: "Administrasi",
     href: "/administrasi/program-pelatihan",
     description:
-      "Data Program Pelatihan dari Proglat Kemnaker, detail unit kompetensi, penyesuaian manual, dan preview PDF.",
+      "Pengelolaan Program Pelatihan terhubung ke SKKNI & Jenis Unit Kompetensi dengan pratinjau PDF.",
     configurable: true,
     defaultByRole: {
       SUPER_ADMIN: true,
@@ -171,4 +187,11 @@ export async function canUserAccessMenu(
   if (isFullAdminRole(role)) return true;
   const menus = await getEffectiveUserMenus(userId, role);
   return menus.includes(menuKey);
+}
+
+export async function canUserAccessAnyProglat(
+  userId: string,
+  role: Role
+): Promise<boolean> {
+  return canUserAccessMenu(userId, role, "administrasi.proglat");
 }
