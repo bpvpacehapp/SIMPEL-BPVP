@@ -48,25 +48,30 @@ export async function GET(req: NextRequest) {
     where.jenisUnit = { contains: search, mode: "insensitive" };
   }
 
-  const [totalAktif, totalTerhapus, filteredTotal, rows] = await Promise.all([
-    prisma.jenisUnitKompetensi.count({ where: { deletedAt: null } }),
-    prisma.jenisUnitKompetensi.count({ where: { deletedAt: { not: null } } }),
+  const [filteredTotal, rows, localPrograms] = await Promise.all([
     prisma.jenisUnitKompetensi.count({ where }),
     prisma.jenisUnitKompetensi.findMany({
       where,
       orderBy: [{ createdAt: "desc" }, { jenisUnit: "asc" }],
       skip: (page - 1) * limit,
       take: limit,
+      include: {
+        program: {
+          select: { id: true, code: true, title: true },
+        },
+      },
+    }),
+    prisma.proglatProgram.findMany({
+      where: { deletedAt: null },
+      orderBy: [{ title: "asc" }],
+      select: { id: true, code: true, title: true },
     }),
   ]);
 
   return NextResponse.json({
     success: true,
-    stats: {
-      totalAktif,
-      totalTerhapus,
-    },
     data: rows,
+    localPrograms,
     pagination: {
       total: filteredTotal,
       page,
@@ -98,12 +103,34 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const body = (await req.json()) as { jenisUnit?: string };
+    const body = (await req.json()) as {
+      jenisUnit?: string;
+      memilikiSk?: boolean;
+      memilikiSuratKeputusan?: boolean;
+      memilikiProgramTersendiri?: boolean;
+      programId?: string | null;
+    };
     const jenisUnit = body.jenisUnit?.trim() || "";
+    const memilikiSk = Boolean(body.memilikiSk);
+    const memilikiSuratKeputusan = Boolean(body.memilikiSuratKeputusan);
+    const memilikiProgramTersendiri = Boolean(body.memilikiProgramTersendiri);
+    const programId = memilikiProgramTersendiri
+      ? body.programId?.trim() || null
+      : null;
 
     if (!jenisUnit) {
       return NextResponse.json(
         { message: "Nama Jenis Unit wajib diisi." },
+        { status: 400 }
+      );
+    }
+
+    if (memilikiProgramTersendiri && !programId) {
+      return NextResponse.json(
+        {
+          message:
+            "Silakan pilih Program Pelatihan dari database lokal karena opsi program tersendiri bernilai Ya.",
+        },
         { status: 400 }
       );
     }
@@ -122,7 +149,16 @@ export async function POST(req: NextRequest) {
     }
 
     const created = await prisma.jenisUnitKompetensi.create({
-      data: { jenisUnit },
+      data: {
+        jenisUnit,
+        memilikiSk,
+        memilikiSuratKeputusan,
+        memilikiProgramTersendiri,
+        programId,
+      },
+      include: {
+        program: { select: { id: true, code: true, title: true } },
+      },
     });
 
     await catatLogAktivitas({
@@ -131,7 +167,14 @@ export async function POST(req: NextRequest) {
       aksi: "TAMBAH_JENIS_UNIT",
       modul: "ADMINISTRASI_JENIS_UNIT",
       detail: `Menambahkan jenis unit kompetensi "${created.jenisUnit}".`,
-      dataSesudah: { id: created.id, jenisUnit: created.jenisUnit },
+      dataSesudah: {
+        id: created.id,
+        jenisUnit: created.jenisUnit,
+        memilikiSk: created.memilikiSk,
+        memilikiSuratKeputusan: created.memilikiSuratKeputusan,
+        memilikiProgramTersendiri: created.memilikiProgramTersendiri,
+        programId: created.programId,
+      },
       ipAddress: extractClientIp(req.headers),
     });
 

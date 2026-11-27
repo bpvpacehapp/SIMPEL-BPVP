@@ -527,6 +527,22 @@ export async function DELETE(
   }
 
   try {
+    // Proteksi referensial: cegah penghapusan jika masih ditautkan oleh Jenis Unit Kompetensi aktif
+    const linkedJenisUnitCount = await prisma.jenisUnitKompetensi.count({
+      where: {
+        programId: id,
+        deletedAt: null,
+      },
+    });
+    if (linkedJenisUnitCount > 0) {
+      return NextResponse.json(
+        {
+          message: `Program "${existing.title}" tidak dapat dihapus karena masih ditautkan pada ${linkedJenisUnitCount} Jenis Unit Kompetensi aktif.`,
+        },
+        { status: 409 }
+      );
+    }
+
     const softDeleted = await prisma.proglatProgram.update({
       where: { id },
       data: { deletedAt: new Date() },

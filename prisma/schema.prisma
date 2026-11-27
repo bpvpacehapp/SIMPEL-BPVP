@@ -78,7 +78,8 @@ model SkkniDocument {
   createdAt    DateTime    @default(now()) @map("created_at")
   updatedAt    DateTime    @updatedAt @map("updated_at")
 
-  units        SkkniUnit[]
+  units         SkkniUnit[]
+  proglatTopics ProglatTopic[]
 
   @@index([availability])
   @@index([numberKepmen])
@@ -93,8 +94,9 @@ model SkkniUnit {
   document     SkkniDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
   code         String
   title        String
-  titleEn      String?       @map("title_en")
-  availability String?
+  titleEn       String?        @map("title_en")
+  availability  String?
+  proglatTopics ProglatTopic[]
 
   @@index([documentId])
   @@index([code])
@@ -149,6 +151,7 @@ model ProglatProgram {
   updatedAt           DateTime       @updatedAt @map("updated_at")
 
   topics              ProglatTopic[]
+  jenisUnitLinks      JenisUnitKompetensi[] @relation("JenisUnitProgram")
 
   @@index([category])
   @@index([code])
@@ -169,27 +172,49 @@ model ProglatTopic {
   description    String?              @db.Text
   type           String?              // "skkni" | "special" | lainnya
   jenisUnitId    String?              @map("jenis_unit_id")
-  jenisUnit      JenisUnitKompetensi? @relation(fields: [jenisUnitId], references: [id], onDelete: SetNull)
+  jenisUnit      JenisUnitKompetensi? @relation(fields: [jenisUnitId], references: [id], onDelete: Restrict)
   skkniId        String?              @map("skkni_id")
+  skkniDocument  SkkniDocument?       @relation(fields: [skkniId], references: [id], onDelete: Restrict)
   skkniUnitId    String?              @map("skkni_unit_id")
+  skkniUnit      SkkniUnit?           @relation(fields: [skkniUnitId], references: [id], onDelete: Restrict)
   isManualEdited Boolean              @default(false) @map("is_manual_edited")
   updatedAt      DateTime             @updatedAt @map("updated_at")
 
   @@index([programId])
   @@index([code])
   @@index([jenisUnitId])
+  @@index([skkniId])
+  @@index([skkniUnitId])
   @@map("proglat_topics")
 }
 
 model JenisUnitKompetensi {
-  id        String         @id @default(cuid())
-  jenisUnit String         @map("jenis_unit")
-  deletedAt DateTime?      @map("deleted_at")
-  createdAt DateTime       @default(now()) @map("created_at")
-  updatedAt DateTime       @updatedAt @map("updated_at")
-  topics    ProglatTopic[]
+  id                         String          @id @default(cuid())
+  jenisUnit                  String          @map("jenis_unit")
+  memilikiSk                 Boolean         @default(false) @map("memiliki_sk")
+  memilikiSuratKeputusan     Boolean         @default(false) @map("memiliki_surat_keputusan")
+  memilikiProgramTersendiri  Boolean         @default(false) @map("memiliki_program_tersendiri")
+  programId                  String?         @map("program_id")
+  program                    ProglatProgram? @relation("JenisUnitProgram", fields: [programId], references: [id], onDelete: Restrict)
+  deletedAt                  DateTime?       @map("deleted_at")
+  createdAt                  DateTime        @default(now()) @map("created_at")
+  updatedAt                  DateTime        @updatedAt @map("updated_at")
+  topics                     ProglatTopic[]
 
   @@index([deletedAt])
   @@index([jenisUnit])
+  @@index([programId])
   @@map("jenis_unit_kompetensi")
+}
+
+model JenisPelatihan {
+  id             String    @id @default(cuid())
+  jenisPelatihan String    @map("jenis_pelatihan")
+  deletedAt      DateTime? @map("deleted_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  @@index([deletedAt])
+  @@index([jenisPelatihan])
+  @@map("jenis_pelatihan")
 }

@@ -84,13 +84,40 @@ interface ProglatSnapshotCache {
 
 const SNAPSHOT_TTL_MS = 5 * 60 * 1000; // 5 menit
 
+interface ProglatSearchCacheEntry {
+  fetchedAt: number;
+  totalFromApi: number;
+  programs: ExternalProglatProgram[];
+}
+
+const SEARCH_CACHE_MAX_ENTRIES = 100;
+
 const globalForProglat = globalThis as unknown as {
   proglatSnapshot?: ProglatSnapshotCache;
   proglatItemsCache?: Map<
     string,
     { item: ExternalProglatProgram; cachedAt: number }
   >;
+  proglatSearchCache?: Map<string, ProglatSearchCacheEntry>;
+  proglatSearchInFlight?: Map<
+    string,
+    Promise<{ programs: ExternalProglatProgram[]; totalFromApi: number }>
+  >;
 };
+
+function getSearchCache() {
+  if (!globalForProglat.proglatSearchCache) {
+    globalForProglat.proglatSearchCache = new Map();
+  }
+  return globalForProglat.proglatSearchCache;
+}
+
+function getSearchInFlight() {
+  if (!globalForProglat.proglatSearchInFlight) {
+    globalForProglat.proglatSearchInFlight = new Map();
+  }
+  return globalForProglat.proglatSearchInFlight;
+}
 
 function getItemsCache() {
   if (!globalForProglat.proglatItemsCache) {
@@ -204,6 +231,7 @@ function normalizeProgram(raw: RawProglatProgram): ExternalProglatProgram | null
 
 /**
  * Pencarian AJAX cepat (default limit=10) untuk dropdown Combobox di Modal Tambah Program.
+ * Dilengkapi server-side cache 5 menit per kata kunci (max 100 query) + deduplikasi request bersamaan.
  */
 export async function searchProglatProgramsAjax(
   keyword: string,
@@ -212,17 +240,56 @@ export async function searchProglatProgramsAjax(
   programs: ExternalProglatProgram[];
   totalFromApi: number;
 }> {
-  const res = await fetchProglatPage(1, limit, 1, keyword);
-  const programs: ExternalProglatProgram[] = [];
-  for (const raw of res.data) {
-    const norm = normalizeProgram(raw);
-    if (norm) programs.push(norm);
+  const normKey = `${limit}:${keyword.trim().toLowerCase()}`;
+  const cache = getSearchCache();
+  const cached = cache.get(normKey);
+
+  if (cached && Date.now() - cached.fetchedAt <= SNAPSHOT_TTL_MS) {
+    // Segarkan items cache juga agar detail byId tetap tersedia
+    rememberProglatPrograms(cached.programs);
+    return {
+      programs: cached.programs,
+      totalFromApi: cached.totalFromApi,
+    };
   }
-  rememberProglatPrograms(programs);
-  return {
-    programs,
-    totalFromApi: res.meta?.pagination?.total ?? programs.length,
-  };
+
+  const inFlight = getSearchInFlight();
+  const existingPromise = inFlight.get(normKey);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const reqPromise = (async () => {
+    try {
+      const res = await fetchProglatPage(1, limit, 1, keyword);
+      const programs: ExternalProglatProgram[] = [];
+      for (const raw of res.data) {
+        const norm = normalizeProgram(raw);
+        if (norm) programs.push(norm);
+      }
+      rememberProglatPrograms(programs);
+
+      const totalFromApi = res.meta?.pagination?.total ?? programs.length;
+
+      // Evict oldest entry jika melewati batas max
+      if (cache.size >= SEARCH_CACHE_MAX_ENTRIES) {
+        const oldestKey = cache.keys().next().value;
+        if (oldestKey !== undefined) cache.delete(oldestKey);
+      }
+      cache.set(normKey, {
+        fetchedAt: Date.now(),
+        totalFromApi,
+        programs,
+      });
+
+      return { programs, totalFromApi };
+    } finally {
+      inFlight.delete(normKey);
+    }
+  })();
+
+  inFlight.set(normKey, reqPromise);
+  return reqPromise;
 }
 
 export async function fetchProglatPage(

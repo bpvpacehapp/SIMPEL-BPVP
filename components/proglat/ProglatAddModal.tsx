@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Combobox,
   ComboboxInput,
@@ -40,6 +40,18 @@ interface SearchTopicResult {
   skkni_unit_id: string | null;
 }
 
+interface SearchProgramSummary {
+  id: string;
+  code: string | null;
+  title: string;
+  type: string | null;
+  version: number;
+  published_at: string | null;
+  total_duration: number;
+  topicsCount: number;
+  existsInLocal: boolean;
+}
+
 interface SearchProgramResult {
   id: string;
   code: string | null;
@@ -55,7 +67,6 @@ interface SearchProgramResult {
   status: string | null;
   version: number;
   program_topics: SearchTopicResult[];
-  existsInLocal: boolean;
 }
 
 interface JenisUnitOption {
@@ -108,12 +119,21 @@ export function ProglatAddModal({
   // Master Jenis Unit Kompetensi (aktif)
   const [jenisUnitList, setJenisUnitList] = useState<JenisUnitOption[]>([]);
 
-  // Step 1: AJAX Search Combobox (limit=10)
+  // Step 1: AJAX Search Combobox (limit=10) + client-side cache per query
   const [query, setQuery] = useState("");
   const [searching, setSearching] = useState(false);
+  const [loadingDetailId, setLoadingDetailId] = useState<string | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [searchResults, setSearchResults] = useState<SearchProgramResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchProgramSummary[]>(
+    []
+  );
   const [totalFromApi, setTotalFromApi] = useState(0);
+  const clientSearchCacheRef = useRef<
+    Map<
+      string,
+      { fetchedAt: number; totalFromApi: number; data: SearchProgramSummary[] }
+    >
+  >(new Map());
 
   // Step 2: Draft review & edit state
   const [selectedProgram, setSelectedProgram] =
@@ -173,17 +193,35 @@ export function ProglatAddModal({
       .catch(() => {});
   }, [open]);
 
-  // Step 1: AJAX debounced search program Proglat (limit=10)
+  // Step 1: AJAX debounced search program Proglat (limit=10, min 2 char, debounce 400ms, client cache 5 menit)
   useEffect(() => {
     if (!open || step !== "search") return;
 
+    const trimmed = query.trim();
+    // Jangan kirim request saat baru mengetik 1 huruf
+    if (trimmed.length === 1) {
+      setSearching(false);
+      return;
+    }
+
+    const cacheKey = trimmed.toLowerCase();
+    const cached = clientSearchCacheRef.current.get(cacheKey);
+    if (cached && Date.now() - cached.fetchedAt <= 5 * 60 * 1000) {
+      setSearchResults(cached.data);
+      setTotalFromApi(cached.totalFromApi);
+      setSearchError(null);
+      setSearching(false);
+      return;
+    }
+
     const controller = new AbortController();
+    const delay = trimmed === "" ? 0 : 400;
     const timer = setTimeout(async () => {
       setSearching(true);
       setSearchError(null);
       try {
         const qs = new URLSearchParams();
-        if (query.trim()) qs.set("q", query.trim());
+        if (trimmed) qs.set("q", trimmed);
         const res = await fetch(`/api/proglat/search?${qs.toString()}`, {
           cache: "no-store",
           signal: controller.signal,
@@ -194,8 +232,15 @@ export function ProglatAddModal({
             json.message || "Gagal mencari data pada API Proglat Kemnaker."
           );
         }
-        setSearchResults(json.data || []);
-        setTotalFromApi(Number(json.totalFromApi || 0));
+        const data: SearchProgramSummary[] = json.data || [];
+        const total = Number(json.totalFromApi || 0);
+        clientSearchCacheRef.current.set(cacheKey, {
+          fetchedAt: Date.now(),
+          totalFromApi: total,
+          data,
+        });
+        setSearchResults(data);
+        setTotalFromApi(total);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setSearchError(
@@ -206,7 +251,7 @@ export function ProglatAddModal({
       } finally {
         setSearching(false);
       }
-    }, 320);
+    }, delay);
 
     return () => {
       clearTimeout(timer);
@@ -258,57 +303,85 @@ export function ProglatAddModal({
 
   if (!open) return null;
 
-  const handleSelectProgram = (prog: SearchProgramResult | null) => {
-    if (!prog) return;
+  const handleSelectProgram = async (summary: SearchProgramSummary | null) => {
+    if (!summary) return;
+    setLoadingDetailId(summary.id);
+    setSearchError(null);
+    try {
+      const qs = new URLSearchParams({ id: summary.id });
+      if (summary.code) qs.set("code", summary.code);
+      const res = await fetch(`/api/proglat/search?${qs.toString()}`, {
+        cache: "no-store",
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data) {
+        throw new Error(json.message || "Gagal memuat detail program.");
+      }
 
-    const topics: DraftTopic[] = (prog.program_topics || []).map((t) => {
-      // Logika otomatis: jika punya kode unit valid -> otomatis "Teknis",
-      // jika spesial / kosong -> dibiarkan kosong agar dipilih langsung oleh user.
-      const defaultJenisId = hasValidUnitCode(t.code) ? teknisJenisUnitId : "";
-      return {
-        id: t.id,
-        code: t.code ?? null,
-        title: t.title,
-        duration: t.duration || 0,
-        references: t.references ?? null,
-        description: t.description ?? null,
-        type: t.type ?? null,
-        jenisUnitId: defaultJenisId,
-        skkniId: t.skkni_id ?? null,
-        skkniUnitId: t.skkni_unit_id ?? null,
-        isManualEdited: false,
+      const prog: SearchProgramResult = json.data;
+
+      const topics: DraftTopic[] = (prog.program_topics || []).map((t) => {
+        // Logika otomatis: unit SKKNI valid (punya skkni_unit_id & kode valid) -> otomatis "Teknis",
+        // unit non-SKKNI (SOFTSKILL, --Spesial, -, kosong) -> dibiarkan kosong agar dipilih manual oleh user.
+        const isSkkniUnit =
+          Boolean(t.skkni_unit_id) && hasValidUnitCode(t.code);
+        const defaultJenisId = isSkkniUnit ? teknisJenisUnitId : "";
+        return {
+          id: t.id,
+          code: t.code ?? null,
+          title: t.title,
+          duration: t.duration || 0,
+          references: t.references ?? null,
+          description: t.description ?? null,
+          type: t.type ?? null,
+          jenisUnitId: defaultJenisId,
+          skkniId: t.skkni_id ?? null,
+          skkniUnitId: t.skkni_unit_id ?? null,
+          isManualEdited: false,
+        };
+      });
+
+      const snapshot: ProglatOriginalSnapshot = {
+        code: prog.code ?? null,
+        title: prog.title,
+        totalModules: topics.length,
+        totalDuration: topics.reduce((acc, t) => acc + t.duration, 0),
+        type: prog.type ?? null,
+        topics: topics.map((t) => ({
+          id: t.id,
+          code: t.code,
+          title: t.title,
+          duration: t.duration,
+          references: t.references,
+          description: t.description,
+          type: t.type,
+          jenisUnitId: t.jenisUnitId || null,
+          skkniId: t.skkniId,
+          skkniUnitId: t.skkniUnitId,
+        })),
       };
-    });
 
-    const snapshot: ProglatOriginalSnapshot = {
-      code: prog.code ?? null,
-      title: prog.title,
-      totalModules: topics.length,
-      totalDuration: topics.reduce((acc, t) => acc + t.duration, 0),
-      type: prog.type ?? null,
-      topics: topics.map((t) => ({
-        id: t.id,
-        code: t.code,
-        title: t.title,
-        duration: t.duration,
-        references: t.references,
-        description: t.description,
-        type: t.type,
-        jenisUnitId: t.jenisUnitId || null,
-        skkniId: t.skkniId,
-        skkniUnitId: t.skkniUnitId,
-      })),
-    };
-
-    setSelectedProgram(prog);
-    setOriginalSnapshot(snapshot);
-    setDraftTitle(prog.title);
-    setDraftType(prog.type || "offline");
-    setDraftTopics(topics);
-    setHasModifiedDraft(false);
-    setShowValidationErrors(false);
-    setShowAddSkkniBox(false);
-    setStep("review");
+      setSelectedProgram(prog);
+      setOriginalSnapshot(snapshot);
+      setDraftTitle(prog.title);
+      setDraftType(prog.type || "offline");
+      setDraftTopics(topics);
+      setHasModifiedDraft(false);
+      setShowValidationErrors(false);
+      setShowAddSkkniBox(false);
+      setStep("review");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Gagal memuat detail program.";
+      setSearchError(msg);
+      showToast({
+        type: "error",
+        title: "Gagal Memuat Program",
+        message: msg,
+      });
+    } finally {
+      setLoadingDetailId(null);
+    }
   };
 
   const handleAddSkkniUnit = (unit: SkkniUnitSearchItem | null) => {
@@ -523,12 +596,16 @@ export function ProglatAddModal({
               Cari Program Pelatihan (Kode atau Judul)
             </label>
 
-            <Combobox value={selectedProgram} onChange={handleSelectProgram}>
+            <Combobox
+              value={null as SearchProgramSummary | null}
+              onChange={(p) => void handleSelectProgram(p)}
+              disabled={Boolean(loadingDetailId)}
+            >
               <div className="relative">
                 <IconSearchFill className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <ComboboxInput
                   autoFocus
-                  displayValue={(p: SearchProgramResult | null) =>
+                  displayValue={(p: SearchProgramSummary | null) =>
                     p ? p.title : query
                   }
                   onChange={(e) => setQuery(e.target.value)}
@@ -539,9 +616,13 @@ export function ProglatAddModal({
 
               <div className="mt-2 flex items-center justify-between text-[12px] text-black dark:text-slate-300">
                 <span>
-                  {searching
-                    ? "Mencari data program..."
-                    : `Menampilkan ${searchResults.length} dari ${totalFromApi.toLocaleString("id-ID")} program tersedia`}
+                  {loadingDetailId
+                    ? "Memuat detail unit kompetensi program..."
+                    : query.trim().length === 1
+                      ? "Ketik minimal 2 karakter untuk mulai mencari..."
+                      : searching
+                        ? "Mencari data program..."
+                        : `Menampilkan ${searchResults.length} dari ${totalFromApi.toLocaleString("id-ID")} program tersedia`}
                 </span>
                 <span>Ketik kata kunci untuk mencari program lain</span>
               </div>
@@ -598,8 +679,7 @@ export function ProglatAddModal({
                             </span>
                             <span>•</span>
                             <span>
-                              {prog.program_topics.length} unit (
-                              {prog.total_duration} JP)
+                              {prog.topicsCount} unit ({prog.total_duration} JP)
                             </span>
                           </div>
                         </div>
@@ -735,72 +815,16 @@ export function ProglatAddModal({
                   </h4>
                   <button
                     type="button"
-                    onClick={() => setShowAddSkkniBox((v) => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3 py-1.5 text-[12.5px] font-semibold text-white hover:bg-emerald-800"
+                    onClick={() => {
+                      setSkkniQuery("");
+                      setShowAddSkkniBox(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-800 px-3 py-1.5 text-[12.5px] font-semibold text-white transition-colors hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500"
                   >
                     <IconPlusFill className="h-3.5 w-3.5" />
-                    {showAddSkkniBox
-                      ? "Tutup Pencarian SKKNI"
-                      : "Tambah Unit dari SKKNI"}
+                    Tambah Unit dari SKKNI
                   </button>
                 </div>
-
-                {/* Inline Search Box Tambah Unit dari SKKNI (`skkni_units`) */}
-                {showAddSkkniBox && (
-                  <div className="shrink-0 space-y-2 rounded-xl border border-emerald-300 bg-emerald-50/70 p-3 dark:border-emerald-900 dark:bg-emerald-950/30">
-                    <label className="block text-[12px] font-semibold text-black dark:text-white">
-                      Cari Unit Kerja dari Menu SKKNI (berdasarkan Kode Unit
-                      atau Judul)
-                    </label>
-                    <Combobox
-                      value={null as SkkniUnitSearchItem | null}
-                      onChange={handleAddSkkniUnit}
-                    >
-                      <div className="relative">
-                        <IconSearchFill className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                        <ComboboxInput
-                          autoFocus
-                          value={skkniQuery}
-                          onChange={(e) => setSkkniQuery(e.target.value)}
-                          placeholder="Ketik kode unit SKKNI (mis. C.28LOG...) atau judul unit..."
-                          className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-3 text-[12.5px] text-black placeholder:text-slate-400 outline-none focus:border-blue-600 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500"
-                        />
-                      </div>
-                      <ComboboxOptions
-                        static
-                        className="mt-1.5 max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-white divide-y divide-slate-200/80 dark:border-slate-700 dark:bg-slate-950 dark:divide-slate-800"
-                      >
-                        {skkniSearching ? (
-                          <div className="px-3 py-4 text-center text-[12px] text-black dark:text-slate-300">
-                            Mencari unit kerja SKKNI...
-                          </div>
-                        ) : skkniResults.length === 0 ? (
-                          <div className="px-3 py-4 text-center text-[12px] text-black dark:text-slate-300">
-                            Unit SKKNI tidak ditemukan di database lokal.
-                          </div>
-                        ) : (
-                          skkniResults.map((u) => (
-                            <ComboboxOption
-                              key={u.id}
-                              value={u}
-                              className="cursor-pointer px-3 py-2 text-[12.5px] data-[focus]:bg-blue-50 dark:data-[focus]:bg-slate-800"
-                            >
-                              <div className="font-mono text-[11.5px] font-bold text-blue-800 dark:text-blue-400">
-                                {u.code}
-                              </div>
-                              <div className="text-black dark:text-white">
-                                {u.title}
-                              </div>
-                              <div className="text-[11px] text-black dark:text-slate-300">
-                                SKKNI: {u.skkni.numberKepmen} • {u.skkni.sector}
-                              </div>
-                            </ComboboxOption>
-                          ))
-                        )}
-                      </ComboboxOptions>
-                    </Combobox>
-                  </div>
-                )}
 
                 {/* Tabel Unit Kompetensi (Durasi langsung input, kolom Jenis Unit dropdown, tanpa tombol Edit) */}
                 <div className="min-h-0 flex-1 overflow-auto rounded-xl border border-slate-200 dark:border-slate-800">
@@ -814,10 +838,10 @@ export function ProglatAddModal({
                           Kode Unit
                         </th>
                         <th className="border-b border-slate-200 px-2 py-2.5 text-center dark:border-slate-700">
-                          Judul Unit &amp; Referensi
+                          Judul Unit
                         </th>
                         <th className="w-40 border-b border-slate-200 px-2 py-2.5 text-center dark:border-slate-700">
-                          Jenis Unit
+                          Jenis Unit <span className="text-rose-600">*</span>
                         </th>
                         <th className="w-24 border-b border-slate-200 px-2 py-2.5 text-center dark:border-slate-700">
                           Durasi (JP)
@@ -840,8 +864,9 @@ export function ProglatAddModal({
                         </tr>
                       ) : (
                         draftTopics.map((topic, idx) => {
+                          const isUnselectedJenis = !topic.jenisUnitId;
                           const isMissingJenis =
-                            showValidationErrors && !topic.jenisUnitId;
+                            showValidationErrors && isUnselectedJenis;
 
                           return (
                             <tr
@@ -859,18 +884,18 @@ export function ProglatAddModal({
                                 {topic.code || "-"}
                               </td>
                               <td className="px-2 py-2.5 text-left text-black dark:text-slate-100">
-                                <div>{topic.title}</div>
-                                {topic.references && (
-                                  <p className="mt-0.5 text-[11.5px] text-black dark:text-slate-300">
-                                    Ref: {topic.references}
+                                {topic.title}
+                              </td>
+                              <td className="px-2 py-2 text-left">
+                                {isUnselectedJenis && (
+                                  <p className="mb-1 text-left text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                                    * Wajib dipilih
                                   </p>
                                 )}
-                              </td>
-                              <td className="px-2 py-2 text-center">
                                 <div
                                   className={
-                                    isMissingJenis
-                                      ? "rounded-lg ring-2 ring-rose-600"
+                                    isUnselectedJenis
+                                      ? "rounded-lg ring-2 ring-rose-500"
                                       : ""
                                   }
                                 >
@@ -885,11 +910,6 @@ export function ProglatAddModal({
                                     options={jenisSelectOptions}
                                   />
                                 </div>
-                                {isMissingJenis && (
-                                  <p className="mt-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
-                                    Wajib dipilih
-                                  </p>
-                                )}
                               </td>
                               <td className="px-2 py-2 text-center">
                                 <input
@@ -1053,6 +1073,91 @@ export function ProglatAddModal({
           </div>
         )}
       </div>
+
+      {/* Sub-Modal: Tambah Unit dari SKKNI (`skkni_units`) */}
+      {showAddSkkniBox && step === "review" && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-[2px]"
+          onClick={() => setShowAddSkkniBox(false)}
+        >
+          <div
+            className="w-full max-w-xl overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-800 text-white dark:bg-blue-600">
+                  <IconPlusFill className="h-5 w-5" />
+                </div>
+                <h3 className="text-[15.5px] font-bold text-black dark:text-white">
+                  Tambah Unit dari SKKNI
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddSkkniBox(false)}
+                aria-label="Tutup modal tambah unit SKKNI"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-black hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <IconCloseFill className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <label className="mb-1.5 block text-[13px] font-semibold text-black dark:text-white">
+                Cari Kode Unit atau Judul Unit Kerja SKKNI
+              </label>
+              <Combobox
+                value={null as SkkniUnitSearchItem | null}
+                onChange={handleAddSkkniUnit}
+              >
+                <div className="relative">
+                  <IconSearchFill className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <ComboboxInput
+                    autoFocus
+                    value={skkniQuery}
+                    onChange={(e) => setSkkniQuery(e.target.value)}
+                    placeholder="Ketik kode unit SKKNI (mis. C.28LOG...) atau judul unit..."
+                    className="w-full rounded-xl border border-slate-300 bg-white py-2.5 pl-9 pr-3 text-[13px] text-black placeholder:text-slate-400 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500"
+                  />
+                </div>
+                <ComboboxOptions
+                  static
+                  className="mt-2.5 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white divide-y divide-slate-200/80 dark:border-slate-800 dark:bg-slate-950 dark:divide-slate-800"
+                >
+                  {skkniSearching ? (
+                    <div className="px-4 py-8 text-center text-[13px] text-black dark:text-slate-300">
+                      Mencari unit kerja SKKNI...
+                    </div>
+                  ) : skkniResults.length === 0 ? (
+                    <div className="px-4 py-8 text-center text-[13px] text-black dark:text-slate-300">
+                      Unit SKKNI tidak ditemukan di database lokal.
+                    </div>
+                  ) : (
+                    skkniResults.map((u) => (
+                      <ComboboxOption
+                        key={u.id}
+                        value={u}
+                        className="cursor-pointer px-4 py-2.5 text-[13px] data-[focus]:bg-blue-50 dark:data-[focus]:bg-slate-800"
+                      >
+                        <div className="font-mono text-[12px] font-bold text-blue-800 dark:text-blue-400">
+                          {u.code}
+                        </div>
+                        <div className="text-black dark:text-white">
+                          {u.title}
+                        </div>
+                        <div className="text-[11.5px] text-black dark:text-slate-300">
+                          SKKNI: {u.skkni.numberKepmen} • {u.skkni.sector}
+                        </div>
+                      </ComboboxOption>
+                    ))
+                  )}
+                </ComboboxOptions>
+              </Combobox>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -22,6 +22,8 @@ import {
   IconHistoryFill,
   IconBookFill,
   IconLayersFill,
+  IconAcademicCapFill,
+  IconCogFill,
 } from "@/components/icons/FilledIcons";
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "SIMPEL BPVP";
@@ -68,14 +70,18 @@ export function ProtectedShell({
   const canSkkni = allowedMenus.includes("administrasi.skkni");
   const canJenisUnit = allowedMenus.includes("administrasi.jenis_unit");
   const canProglat = allowedMenus.includes("administrasi.proglat");
+  const canJenisPelatihan = allowedMenus.includes("pelatihan.jenis_pelatihan");
   const canUsers = allowedMenus.includes("administrasi.users");
   const canLogs = allowedMenus.includes("administrasi.logs");
-  const hasAnyAdministrasi =
-    canSkkni || canJenisUnit || canProglat || canUsers || canLogs;
+  const hasAnyAdministrasi = canSkkni || canJenisUnit || canProglat;
+  const hasAnyPelatihan = canJenisPelatihan;
+  const hasAnyPengaturan = canUsers || canLogs;
   const roleLabel = ROLE_LABEL[user.role] || "Pengguna";
 
   const [collapsed, setCollapsed] = useState(false);
   const [adminGroupOpen, setAdminGroupOpen] = useState(true);
+  const [pelatihanGroupOpen, setPelatihanGroupOpen] = useState(true);
+  const [pengaturanGroupOpen, setPengaturanGroupOpen] = useState(true);
 
   useEffect(() => {
     try {
@@ -106,14 +112,15 @@ export function ProtectedShell({
   const isProglatActive = pathname.startsWith(
     "/administrasi/program-pelatihan"
   );
+  const isJenisPelatihanActive = pathname.startsWith(
+    "/pelatihan/jenis-pelatihan"
+  );
   const isUsersActive = pathname.startsWith("/admin/users");
   const isLogsActive = pathname.startsWith("/admin/logs");
   const isAdministrasiActive =
-    isSkkniActive ||
-    isJenisUnitActive ||
-    isProglatActive ||
-    isUsersActive ||
-    isLogsActive;
+    isSkkniActive || isJenisUnitActive || isProglatActive;
+  const isPelatihanActive = isJenisPelatihanActive;
+  const isPengaturanActive = isUsersActive || isLogsActive;
 
   return (
     <div className="h-screen w-full flex overflow-hidden bg-[#f4f6f9] dark:bg-[#0b1120] text-black dark:text-slate-100">
@@ -228,32 +235,6 @@ export function ProtectedShell({
                       <IconBookFill className="h-4 w-4" />
                     </Link>
                   )}
-                  {canUsers && (
-                    <Link
-                      href="/admin/users"
-                      title="Administrasi — Manajemen User"
-                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
-                        isUsersActive
-                          ? "bg-blue-600 text-white"
-                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <IconUsersFill className="h-4 w-4" />
-                    </Link>
-                  )}
-                  {canLogs && (
-                    <Link
-                      href="/admin/logs"
-                      title="Administrasi — Log Aktivitas"
-                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
-                        isLogsActive
-                          ? "bg-blue-600 text-white"
-                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                      }`}
-                    >
-                      <IconHistoryFill className="h-4 w-4" />
-                    </Link>
-                  )}
                 </div>
               ) : (
                 <>
@@ -322,7 +303,132 @@ export function ProtectedShell({
                           <span className="truncate">Program Pelatihan</span>
                         </Link>
                       )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
 
+          {/* Grup Menu: Pelatihan */}
+          {hasAnyPelatihan && (
+            <div className="pt-1">
+              {collapsed ? (
+                <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-2">
+                  {canJenisPelatihan && (
+                    <Link
+                      href="/pelatihan/jenis-pelatihan"
+                      title="Pelatihan — Jenis Pelatihan"
+                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
+                        isJenisPelatihanActive
+                          ? "bg-blue-600 text-white"
+                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <IconAcademicCapFill className="h-4 w-4" />
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPelatihanGroupOpen((o) => !o)}
+                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+                      isPelatihanActive
+                        ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-white"
+                        : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <IconAcademicCapFill className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Pelatihan</span>
+                    </span>
+                    <IconChevronDownFill
+                      className={`h-3.5 w-3.5 shrink-0 text-black/60 dark:text-slate-400 transition-transform duration-200 ${
+                        pelatihanGroupOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {pelatihanGroupOpen && (
+                    <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
+                      {canJenisPelatihan && (
+                        <Link
+                          href="/pelatihan/jenis-pelatihan"
+                          className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13.5px] font-medium transition-colors ${
+                            isJenisPelatihanActive
+                              ? "bg-blue-600 text-white"
+                              : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                          }`}
+                        >
+                          <IconLayersFill className="h-4 w-4 shrink-0" />
+                          <span className="truncate">Jenis Pelatihan</span>
+                        </Link>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Grup Menu: Pengaturan Sistem */}
+          {hasAnyPengaturan && (
+            <div className="pt-1">
+              {collapsed ? (
+                <div className="space-y-1 border-t border-slate-200 dark:border-slate-800 pt-2">
+                  {canUsers && (
+                    <Link
+                      href="/admin/users"
+                      title="Pengaturan Sistem — Manajemen User"
+                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
+                        isUsersActive
+                          ? "bg-blue-600 text-white"
+                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <IconUsersFill className="h-4 w-4" />
+                    </Link>
+                  )}
+                  {canLogs && (
+                    <Link
+                      href="/admin/logs"
+                      title="Pengaturan Sistem — Log Aktivitas"
+                      className={`flex items-center justify-center rounded-xl py-2 transition-colors ${
+                        isLogsActive
+                          ? "bg-blue-600 text-white"
+                          : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <IconHistoryFill className="h-4 w-4" />
+                    </Link>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setPengaturanGroupOpen((o) => !o)}
+                    className={`w-full flex items-center justify-between rounded-xl px-3 py-2 text-[13.5px] font-semibold transition-colors cursor-pointer ${
+                      isPengaturanActive
+                        ? "bg-blue-50 dark:bg-slate-800 text-blue-700 dark:text-white"
+                        : "text-black dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2.5 min-w-0">
+                      <IconCogFill className="h-4 w-4 shrink-0" />
+                      <span className="truncate">Pengaturan Sistem</span>
+                    </span>
+                    <IconChevronDownFill
+                      className={`h-3.5 w-3.5 shrink-0 text-black/60 dark:text-slate-400 transition-transform duration-200 ${
+                        pengaturanGroupOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {pengaturanGroupOpen && (
+                    <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-400 dark:border-slate-500 space-y-1">
                       {canUsers && (
                         <Link
                           href="/admin/users"
@@ -501,6 +607,19 @@ export function ProtectedShell({
               >
                 <IconBookFill className="h-3.5 w-3.5" />
                 Program Pelatihan
+              </Link>
+            )}
+            {canJenisPelatihan && (
+              <Link
+                href="/pelatihan/jenis-pelatihan"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                  isJenisPelatihanActive
+                    ? "bg-blue-600 text-white"
+                    : "bg-slate-100 dark:bg-slate-800 text-black dark:text-slate-200"
+                }`}
+              >
+                <IconAcademicCapFill className="h-3.5 w-3.5" />
+                Jenis Pelatihan
               </Link>
             )}
             {canUsers && (

@@ -41,6 +41,10 @@ export async function PATCH(
     const body = (await req.json()) as {
       action?: "restore";
       jenisUnit?: string;
+      memilikiSk?: boolean;
+      memilikiSuratKeputusan?: boolean;
+      memilikiProgramTersendiri?: boolean;
+      programId?: string | null;
     };
     const ipAddress = extractClientIp(req.headers);
 
@@ -93,11 +97,39 @@ export async function PATCH(
       });
     }
 
-    // Update nama jenis unit
+    // Update nama jenis unit & opsi toggle
     const nextJenisUnit = body.jenisUnit?.trim() || "";
     if (!nextJenisUnit) {
       return NextResponse.json(
         { message: "Nama Jenis Unit wajib diisi." },
+        { status: 400 }
+      );
+    }
+
+    const nextMemilikiSk =
+      body.memilikiSk !== undefined
+        ? Boolean(body.memilikiSk)
+        : existing.memilikiSk;
+    const nextMemilikiSuratKeputusan =
+      body.memilikiSuratKeputusan !== undefined
+        ? Boolean(body.memilikiSuratKeputusan)
+        : existing.memilikiSuratKeputusan;
+    const nextMemilikiProgramTersendiri =
+      body.memilikiProgramTersendiri !== undefined
+        ? Boolean(body.memilikiProgramTersendiri)
+        : existing.memilikiProgramTersendiri;
+    const nextProgramId = nextMemilikiProgramTersendiri
+      ? (body.programId !== undefined
+          ? body.programId?.trim() || null
+          : existing.programId)
+      : null;
+
+    if (nextMemilikiProgramTersendiri && !nextProgramId) {
+      return NextResponse.json(
+        {
+          message:
+            "Silakan pilih Program Pelatihan dari database lokal karena opsi program tersendiri bernilai Ya.",
+        },
         { status: 400 }
       );
     }
@@ -118,7 +150,16 @@ export async function PATCH(
 
     const updated = await prisma.jenisUnitKompetensi.update({
       where: { id },
-      data: { jenisUnit: nextJenisUnit },
+      data: {
+        jenisUnit: nextJenisUnit,
+        memilikiSk: nextMemilikiSk,
+        memilikiSuratKeputusan: nextMemilikiSuratKeputusan,
+        memilikiProgramTersendiri: nextMemilikiProgramTersendiri,
+        programId: nextProgramId,
+      },
+      include: {
+        program: { select: { id: true, code: true, title: true } },
+      },
     });
 
     await catatLogAktivitas({
@@ -127,8 +168,22 @@ export async function PATCH(
       aksi: "UPDATE_JENIS_UNIT",
       modul: "ADMINISTRASI_JENIS_UNIT",
       detail: `Mengubah jenis unit kompetensi "${existing.jenisUnit}" menjadi "${updated.jenisUnit}".`,
-      dataSebelum: { id: existing.id, jenisUnit: existing.jenisUnit },
-      dataSesudah: { id: updated.id, jenisUnit: updated.jenisUnit },
+      dataSebelum: {
+        id: existing.id,
+        jenisUnit: existing.jenisUnit,
+        memilikiSk: existing.memilikiSk,
+        memilikiSuratKeputusan: existing.memilikiSuratKeputusan,
+        memilikiProgramTersendiri: existing.memilikiProgramTersendiri,
+        programId: existing.programId,
+      },
+      dataSesudah: {
+        id: updated.id,
+        jenisUnit: updated.jenisUnit,
+        memilikiSk: updated.memilikiSk,
+        memilikiSuratKeputusan: updated.memilikiSuratKeputusan,
+        memilikiProgramTersendiri: updated.memilikiProgramTersendiri,
+        programId: updated.programId,
+      },
       ipAddress,
     });
 
@@ -179,6 +234,22 @@ export async function DELETE(
   }
 
   try {
+    // Proteksi referensial: cegah penghapusan jika masih dipakai di Program Pelatihan aktif
+    const usedByTopicsCount = await prisma.proglatTopic.count({
+      where: {
+        jenisUnitId: id,
+        program: { deletedAt: null },
+      },
+    });
+    if (usedByTopicsCount > 0) {
+      return NextResponse.json(
+        {
+          message: `Jenis unit "${existing.jenisUnit}" tidak dapat dihapus karena masih digunakan oleh ${usedByTopicsCount} unit kompetensi pada Program Pelatihan aktif.`,
+        },
+        { status: 409 }
+      );
+    }
+
     const deletedAt = new Date();
     const softDeleted = await prisma.jenisUnitKompetensi.update({
       where: { id },

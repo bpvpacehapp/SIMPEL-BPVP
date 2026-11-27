@@ -655,7 +655,7 @@ export function ProglatDetailClient({
                     setSkkniQuery("");
                     setAddModalOpen(true);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-700 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-emerald-800"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-800 px-3.5 py-2 text-[13px] font-semibold text-white transition-colors hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500"
                 >
                   <IconPlusFill className="h-4 w-4" />
                   Tambah Unit
@@ -675,7 +675,7 @@ export function ProglatDetailClient({
                     Kode Unit
                   </th>
                   <th className="border-b border-slate-200 px-2 py-3 text-center dark:border-slate-700">
-                    Judul Unit &amp; Referensi
+                    Judul Unit
                   </th>
                   <th className="w-40 border-b border-slate-200 px-2 py-3 text-center dark:border-slate-700">
                     Jenis Unit
@@ -713,12 +713,7 @@ export function ProglatDetailClient({
                         {topic.code || "-"}
                       </td>
                       <td className="px-2 py-3 text-left font-normal text-black dark:text-slate-100">
-                        <div>{topic.title}</div>
-                        {topic.references && (
-                          <p className="mt-1 text-[11.5px] text-black dark:text-slate-300">
-                            Ref: {topic.references}
-                          </p>
-                        )}
+                        {topic.title}
                       </td>
                       <td className="px-2 py-2.5 text-center font-normal">
                         {canEdit ? (
@@ -852,7 +847,7 @@ export function ProglatDetailClient({
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-700 text-white">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-800 text-white dark:bg-blue-600">
                   <IconPlusFill className="h-5 w-5" />
                 </div>
                 <h3 className="text-[15.5px] font-bold text-black dark:text-white">

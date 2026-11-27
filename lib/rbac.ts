@@ -6,6 +6,7 @@ export type MenuKey =
   | "administrasi.skkni"
   | "administrasi.jenis_unit"
   | "administrasi.proglat"
+  | "pelatihan.jenis_pelatihan"
   | "administrasi.users"
   | "administrasi.logs";
 
@@ -89,9 +90,24 @@ export const APP_MENUS: AppMenuDefinition[] = [
     },
   },
   {
+    key: "pelatihan.jenis_pelatihan",
+    label: "Jenis Pelatihan",
+    group: "Pelatihan",
+    href: "/pelatihan/jenis-pelatihan",
+    description:
+      "Master data jenis pelatihan (tambah, ubah, soft delete, dan pemulihan).",
+    configurable: true,
+    defaultByRole: {
+      SUPER_ADMIN: true,
+      ADMIN: true,
+      ADMIN_SUB_UNIT: false,
+      USER: false,
+    },
+  },
+  {
     key: "administrasi.users",
     label: "Manajemen User & RBAC",
-    group: "Administrasi",
+    group: "Pengaturan Sistem",
     href: "/admin/users",
     description: "Pengelolaan whitelist pengguna dan pengaturan hak akses menu.",
     configurable: false,
@@ -105,7 +121,7 @@ export const APP_MENUS: AppMenuDefinition[] = [
   {
     key: "administrasi.logs",
     label: "Log Aktivitas",
-    group: "Administrasi",
+    group: "Pengaturan Sistem",
     href: "/admin/logs",
     description: "Audit trail aktivitas CRUD dan autentikasi seluruh pengguna.",
     configurable: false,

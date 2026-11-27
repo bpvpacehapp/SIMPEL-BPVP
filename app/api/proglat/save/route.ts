@@ -82,6 +82,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const candidateSkkniIds = Array.from(
+      new Set(
+        topicsInput
+          .map((t) => t.skkniId?.trim())
+          .filter((v): v is string => Boolean(v))
+      )
+    );
+    const candidateSkkniUnitIds = Array.from(
+      new Set(
+        topicsInput
+          .map((t) => t.skkniUnitId?.trim())
+          .filter((v): v is string => Boolean(v))
+      )
+    );
+
+    const [validSkkniDocs, validSkkniUnits] = await Promise.all([
+      candidateSkkniIds.length > 0
+        ? prisma.skkniDocument.findMany({
+            where: { id: { in: candidateSkkniIds } },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      candidateSkkniUnitIds.length > 0
+        ? prisma.skkniUnit.findMany({
+            where: { id: { in: candidateSkkniUnitIds } },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const validSkkniIdSet = new Set(validSkkniDocs.map((d) => d.id));
+    const validSkkniUnitIdSet = new Set(validSkkniUnits.map((u) => u.id));
+
     const normalizedTopics = topicsInput
       .filter((t) => Boolean(t?.title?.trim()))
       .map((t) => ({
@@ -94,8 +127,14 @@ export async function POST(req: NextRequest) {
         description: t.description ? String(t.description).trim() : null,
         type: t.type ? String(t.type).trim() : null,
         jenisUnitId: t.jenisUnitId?.trim() || null,
-        skkniId: t.skkniId ?? null,
-        skkniUnitId: t.skkniUnitId ?? null,
+        skkniId:
+          t.skkniId && validSkkniIdSet.has(t.skkniId.trim())
+            ? t.skkniId.trim()
+            : null,
+        skkniUnitId:
+          t.skkniUnitId && validSkkniUnitIdSet.has(t.skkniUnitId.trim())
+            ? t.skkniUnitId.trim()
+            : null,
         isManualEdited: Boolean(t.isManualEdited),
       }));
 

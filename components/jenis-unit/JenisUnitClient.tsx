@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Role } from "@prisma/client";
 import { PaginationBar } from "@/components/ui/PaginationBar";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
@@ -9,24 +9,29 @@ import {
   IconCheckCircleFill,
   IconCloseFill,
   IconEditFill,
-  IconLayersFill,
   IconPlusFill,
   IconRefreshFill,
   IconSearchFill,
   IconTrashFill,
 } from "@/components/icons/FilledIcons";
 
+interface LocalProgramOption {
+  id: string;
+  code: string | null;
+  title: string;
+}
+
 interface JenisUnitRecord {
   id: string;
   jenisUnit: string;
+  memilikiSk: boolean;
+  memilikiSuratKeputusan: boolean;
+  memilikiProgramTersendiri: boolean;
+  programId: string | null;
+  program: LocalProgramOption | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
-}
-
-interface JenisUnitStats {
-  totalAktif: number;
-  totalTerhapus: number;
 }
 
 interface JenisUnitClientProps {
@@ -35,15 +40,54 @@ interface JenisUnitClientProps {
 
 const PAGE_SIZE = 15;
 
+function YesNoToggle({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 px-3.5 py-2.5 dark:border-slate-800 dark:bg-slate-950/60">
+      <span className="text-[13px] font-medium text-black dark:text-slate-100">
+        {label}
+      </span>
+      <div className="inline-flex shrink-0 items-center rounded-lg border border-slate-300 bg-white p-0.5 dark:border-slate-700 dark:bg-slate-900">
+        <button
+          type="button"
+          onClick={() => onChange(true)}
+          className={`rounded-md px-3 py-1 text-[12px] font-semibold transition-colors cursor-pointer ${
+            value
+              ? "bg-emerald-700 text-white"
+              : "text-black hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          }`}
+        >
+          Ya
+        </button>
+        <button
+          type="button"
+          onClick={() => onChange(false)}
+          className={`rounded-md px-3 py-1 text-[12px] font-semibold transition-colors cursor-pointer ${
+            !value
+              ? "bg-slate-700 text-white dark:bg-slate-600"
+              : "text-black hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+          }`}
+        >
+          Tidak
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
   const canEdit = userRole !== "USER";
   const { showToast } = useToast();
 
   const [rows, setRows] = useState<JenisUnitRecord[]>([]);
-  const [stats, setStats] = useState<JenisUnitStats>({
-    totalAktif: 0,
-    totalTerhapus: 0,
-  });
+  const [localPrograms, setLocalPrograms] = useState<LocalProgramOption[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -56,6 +100,11 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingRow, setEditingRow] = useState<JenisUnitRecord | null>(null);
   const [jenisUnitInput, setJenisUnitInput] = useState("");
+  const [memilikiSk, setMemilikiSk] = useState(false);
+  const [memilikiSuratKeputusan, setMemilikiSuratKeputusan] = useState(false);
+  const [memilikiProgramTersendiri, setMemilikiProgramTersendiri] =
+    useState(false);
+  const [selectedProgramId, setSelectedProgramId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Modal Konfirmasi Soft Delete
@@ -88,7 +137,9 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
       }
 
       setRows(json.data || []);
-      if (json.stats) setStats(json.stats);
+      if (Array.isArray(json.localPrograms)) {
+        setLocalPrograms(json.localPrograms);
+      }
       setTotalPages(json.pagination?.totalPages || 1);
       setTotalFiltered(json.pagination?.total || 0);
     } catch (error) {
@@ -112,15 +163,32 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
     return () => clearTimeout(timer);
   }, [fetchData]);
 
+  const localProgramSelectOptions = useMemo(
+    () =>
+      localPrograms.map((p) => ({
+        value: p.id,
+        label: p.code ? `${p.code} — ${p.title}` : p.title,
+      })),
+    [localPrograms]
+  );
+
   const openAddModal = () => {
     setEditingRow(null);
     setJenisUnitInput("");
+    setMemilikiSk(false);
+    setMemilikiSuratKeputusan(false);
+    setMemilikiProgramTersendiri(false);
+    setSelectedProgramId("");
     setFormOpen(true);
   };
 
   const openEditModal = (row: JenisUnitRecord) => {
     setEditingRow(row);
     setJenisUnitInput(row.jenisUnit);
+    setMemilikiSk(Boolean(row.memilikiSk));
+    setMemilikiSuratKeputusan(Boolean(row.memilikiSuratKeputusan));
+    setMemilikiProgramTersendiri(Boolean(row.memilikiProgramTersendiri));
+    setSelectedProgramId(row.programId || "");
     setFormOpen(true);
   };
 
@@ -136,6 +204,16 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
       return;
     }
 
+    if (memilikiProgramTersendiri && !selectedProgramId) {
+      showToast({
+        type: "error",
+        title: "Program Pelatihan Belum Dipilih",
+        message:
+          "Pilih program pelatihan dari database lokal karena opsi program tersendiri bernilai Ya.",
+      });
+      return;
+    }
+
     setSubmitting(true);
     try {
       const url = editingRow
@@ -146,7 +224,13 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jenisUnit: cleaned }),
+        body: JSON.stringify({
+          jenisUnit: cleaned,
+          memilikiSk,
+          memilikiSuratKeputusan,
+          memilikiProgramTersendiri,
+          programId: memilikiProgramTersendiri ? selectedProgramId : null,
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -267,37 +351,6 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] font-medium text-black dark:text-slate-300">
-              Total Jenis Unit Aktif
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-800 text-white dark:bg-blue-600">
-              <IconLayersFill className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-bold text-black dark:text-white">
-            {stats.totalAktif.toLocaleString("id-ID")}
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] font-medium text-black dark:text-slate-300">
-              Data Terhapus (Soft Delete)
-            </span>
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-700 text-white">
-              <IconTrashFill className="h-5 w-5" />
-            </div>
-          </div>
-          <p className="mt-3 text-2xl font-bold text-black dark:text-white">
-            {stats.totalTerhapus.toLocaleString("id-ID")}
-          </p>
-        </div>
-      </div>
-
       {/* Filter & Table Card */}
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="grid grid-cols-1 gap-3 border-b border-slate-200 p-4 md:grid-cols-12 dark:border-slate-800">
@@ -334,7 +387,7 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
           </div>
         </div>
 
-        {/* Table (kolom data hanya Jenis Unit) */}
+        {/* Table */}
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-[13.5px]">
             <thead className="bg-slate-100 text-[14px] font-bold text-black dark:bg-slate-800 dark:text-white">
@@ -394,7 +447,31 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
                               Terhapus
                             </span>
                           )}
+                          {row.memilikiSk && (
+                            <span className="rounded-md bg-emerald-700 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              Surat Keputusan
+                            </span>
+                          )}
+                          {row.memilikiSuratKeputusan && (
+                            <span className="rounded-md bg-sky-700 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              Surat Tugas
+                            </span>
+                          )}
+                          {row.memilikiProgramTersendiri && (
+                            <span className="rounded-md bg-violet-700 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              Program Tersendiri
+                            </span>
+                          )}
                         </div>
+                        {row.memilikiProgramTersendiri && row.program && (
+                          <div className="mt-1 text-[12px] text-black dark:text-slate-300">
+                            Program:{" "}
+                            <span className="font-mono">
+                              {row.program.code ? `${row.program.code} — ` : ""}
+                            </span>
+                            {row.program.title}
+                          </div>
+                        )}
                       </td>
                       {canEdit && (
                         <td className="px-4 py-3 text-center">
@@ -457,7 +534,7 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
           onClick={() => !submitting && setFormOpen(false)}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -496,10 +573,54 @@ export function JenisUnitClient({ userRole }: JenisUnitClientProps) {
                   autoFocus
                   value={jenisUnitInput}
                   onChange={(e) => setJenisUnitInput(e.target.value)}
-                  placeholder="Contoh: SKKNI, Softskill, Produktivitas..."
+                  placeholder="Contoh: Teknis, Softskill, Produktivitas..."
                   className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-[13.5px] text-black placeholder:text-slate-400 outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500"
                 />
               </div>
+
+              <div className="space-y-2.5">
+                <YesNoToggle
+                  label="Apakah jenis unit ini memiliki Surat Keputusan?"
+                  value={memilikiSk}
+                  onChange={setMemilikiSk}
+                />
+                <YesNoToggle
+                  label="Apakah jenis unit ini memiliki Surat Tugas?"
+                  value={memilikiSuratKeputusan}
+                  onChange={setMemilikiSuratKeputusan}
+                />
+                <YesNoToggle
+                  label="Apakah jenis unit ini memiliki Program Pelatihannya tersendiri?"
+                  value={memilikiProgramTersendiri}
+                  onChange={(next) => {
+                    setMemilikiProgramTersendiri(next);
+                    if (!next) setSelectedProgramId("");
+                  }}
+                />
+              </div>
+
+              {/* Kondisi No. 3: Pencarian program dari database lokal */}
+              {memilikiProgramTersendiri && (
+                <div className="rounded-xl border border-violet-300 bg-violet-50/70 p-3.5 dark:border-violet-900 dark:bg-violet-950/30">
+                  <label className="mb-1.5 block text-[12.5px] font-semibold text-black dark:text-white">
+                    Pilih Program Pelatihan (Database Lokal){" "}
+                    <span className="text-rose-600">*</span>
+                  </label>
+                  {localProgramSelectOptions.length === 0 ? (
+                    <p className="text-[12.5px] text-rose-700 dark:text-rose-300">
+                      Belum ada Program Pelatihan tersimpan di database lokal.
+                      Tambahkan terlebih dahulu di menu Program Pelatihan.
+                    </p>
+                  ) : (
+                    <SearchableSelect
+                      value={selectedProgramId}
+                      onChange={setSelectedProgramId}
+                      placeholder="Cari judul atau kode program tersimpan..."
+                      options={localProgramSelectOptions}
+                    />
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
                 <button

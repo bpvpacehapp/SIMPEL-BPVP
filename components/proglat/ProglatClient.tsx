@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Role } from "@prisma/client";
 import { ProglatAddModal } from "@/components/proglat/ProglatAddModal";
@@ -88,11 +88,21 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
   const [totalFiltered, setTotalFiltered] = useState(0);
 
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const prefetchedSearchRef = useRef(false);
+
+  const prefetchInitialPrograms = () => {
+    if (prefetchedSearchRef.current) return;
+    prefetchedSearchRef.current = true;
+    fetch("/api/proglat/search", { cache: "no-store" }).catch(() => {
+      prefetchedSearchRef.current = false;
+    });
+  };
   const [confirmResetProg, setConfirmResetProg] =
     useState<ProglatRecord | null>(null);
   const [resettingId, setResettingId] = useState<string | null>(null);
   const [confirmDeleteProg, setConfirmDeleteProg] =
     useState<ProglatRecord | null>(null);
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
 
@@ -195,8 +205,13 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
     }
   };
 
+  const isDeleteNameMatched = Boolean(
+    confirmDeleteProg &&
+      deleteConfirmInput.trim() === confirmDeleteProg.title.trim()
+  );
+
   const handleConfirmSoftDelete = async () => {
-    if (!confirmDeleteProg) return;
+    if (!confirmDeleteProg || !isDeleteNameMatched) return;
     setDeletingId(confirmDeleteProg.id);
     try {
       const res = await fetch(`/api/proglat/${confirmDeleteProg.id}`, {
@@ -212,6 +227,7 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
         message: `Program *${confirmDeleteProg.title}* telah dipindahkan ke data terhapus.`,
       });
       setConfirmDeleteProg(null);
+      setDeleteConfirmInput("");
       void fetchLocalPrograms();
     } catch (error) {
       showToast({
@@ -275,6 +291,8 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
         {canEdit && (
           <button
             type="button"
+            onMouseEnter={prefetchInitialPrograms}
+            onFocus={prefetchInitialPrograms}
             onClick={() => setAddModalOpen(true)}
             className="inline-flex items-center gap-2 rounded-xl bg-blue-800 px-4 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition-colors hover:bg-blue-900 dark:bg-blue-600 dark:hover:bg-blue-500"
           >
@@ -583,7 +601,10 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
                             {canEdit && (
                               <button
                                 type="button"
-                                onClick={() => setConfirmDeleteProg(prog)}
+                                onClick={() => {
+                                  setDeleteConfirmInput("");
+                                  setConfirmDeleteProg(prog);
+                                }}
                                 disabled={deletingId === prog.id}
                                 title="Hapus sementara (soft delete)"
                                 className="inline-flex items-center gap-1 rounded-lg border border-rose-600 bg-white px-2.5 py-1.5 text-[12.5px] font-semibold text-rose-700 transition-colors hover:bg-rose-50 disabled:opacity-50 dark:border-rose-500 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-950/50"
@@ -627,10 +648,15 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
       {confirmDeleteProg && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/65 p-4 backdrop-blur-[2px]"
-          onClick={() => !deletingId && setConfirmDeleteProg(null)}
+          onClick={() => {
+            if (!deletingId) {
+              setConfirmDeleteProg(null);
+              setDeleteConfirmInput("");
+            }
+          }}
         >
           <div
-            className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+            className="w-full max-w-lg overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -639,42 +665,81 @@ export function ProglatClient({ userRole }: ProglatClientProps) {
                   <IconTrashFill className="h-5 w-5" />
                 </div>
                 <h3 className="text-[15.5px] font-bold text-black dark:text-white">
-                  Hapus Program Pelatihan?
+                  Konfirmasi Hapus Program Pelatihan
                 </h3>
               </div>
               <button
                 type="button"
                 disabled={Boolean(deletingId)}
-                onClick={() => setConfirmDeleteProg(null)}
+                onClick={() => {
+                  setConfirmDeleteProg(null);
+                  setDeleteConfirmInput("");
+                }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-black hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 <IconCloseFill className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="space-y-2 p-5 text-[13.5px] text-black dark:text-slate-200">
+            <div className="space-y-3.5 p-5 text-[13.5px] text-black dark:text-slate-200">
               <p>
-                Hapus sementara program{" "}
-                <strong>{confirmDeleteProg.title}</strong>? Data tetap tersimpan
-                (soft delete) dan dapat dipulihkan kembali melalui filter{" "}
-                <strong>Terhapus</strong>.
+                Untuk memastikan penghapusan sementara (soft delete), ketik
+                ulang nama program berikut persis sama termasuk huruf
+                besar/kecilnya:
               </p>
+
+              <p className="py-1 text-center text-[15px] font-bold text-black select-all dark:text-white">
+                {confirmDeleteProg.title}
+              </p>
+
+              <div>
+                <label className="mb-1.5 block text-[12.5px] font-semibold text-black dark:text-white">
+                  Ketik Nama Program <span className="text-rose-600">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={deleteConfirmInput}
+                  onChange={(e) => setDeleteConfirmInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && isDeleteNameMatched && !deletingId) {
+                      void handleConfirmSoftDelete();
+                    }
+                  }}
+                  placeholder="Ketik judul program di atas untuk mengaktifkan tombol hapus..."
+                  className={`w-full rounded-xl border bg-white px-3.5 py-2.5 text-[13.5px] text-black placeholder:text-slate-400 outline-none focus:ring-2 dark:bg-slate-950 dark:text-white dark:placeholder:text-slate-500 ${
+                    deleteConfirmInput.trim().length > 0 && !isDeleteNameMatched
+                      ? "border-rose-500 focus:border-rose-600 focus:ring-rose-500/20"
+                      : isDeleteNameMatched
+                        ? "border-emerald-600 focus:border-emerald-600 focus:ring-emerald-500/20"
+                        : "border-slate-300 focus:border-blue-600 focus:ring-blue-500/20 dark:border-slate-700"
+                  }`}
+                />
+                {deleteConfirmInput.trim().length > 0 && !isDeleteNameMatched && (
+                  <p className="mt-1 text-[11.5px] font-semibold text-rose-700 dark:text-rose-400">
+                    Nama program belum sesuai.
+                  </p>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3.5 dark:border-slate-800">
               <button
                 type="button"
                 disabled={Boolean(deletingId)}
-                onClick={() => setConfirmDeleteProg(null)}
+                onClick={() => {
+                  setConfirmDeleteProg(null);
+                  setDeleteConfirmInput("");
+                }}
                 className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-[13px] font-medium text-black hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
               >
                 Batal
               </button>
               <button
                 type="button"
-                disabled={Boolean(deletingId)}
+                disabled={Boolean(deletingId) || !isDeleteNameMatched}
                 onClick={() => void handleConfirmSoftDelete()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-4 py-2 text-[13px] font-semibold text-white hover:bg-rose-800 disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-rose-700 px-4 py-2 text-[13px] font-semibold text-white hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <IconTrashFill className="h-4 w-4" />
                 {deletingId ? "Menghapus..." : "Ya, Hapus"}

@@ -255,6 +255,37 @@ export async function POST(
       });
 
       if (snapshot.topics.length > 0) {
+        const snapSkkniIds = Array.from(
+          new Set(
+            snapshot.topics
+              .map((t) => t.skkniId)
+              .filter((v): v is string => Boolean(v))
+          )
+        );
+        const snapSkkniUnitIds = Array.from(
+          new Set(
+            snapshot.topics
+              .map((t) => t.skkniUnitId)
+              .filter((v): v is string => Boolean(v))
+          )
+        );
+        const [validDocs, validUnits] = await Promise.all([
+          snapSkkniIds.length > 0
+            ? tx.skkniDocument.findMany({
+                where: { id: { in: snapSkkniIds } },
+                select: { id: true },
+              })
+            : Promise.resolve([]),
+          snapSkkniUnitIds.length > 0
+            ? tx.skkniUnit.findMany({
+                where: { id: { in: snapSkkniUnitIds } },
+                select: { id: true },
+              })
+            : Promise.resolve([]),
+        ]);
+        const validDocSet = new Set(validDocs.map((d) => d.id));
+        const validUnitSet = new Set(validUnits.map((u) => u.id));
+
         await tx.proglatTopic.createMany({
           data: snapshot.topics.map((t) => ({
             id: t.id,
@@ -266,8 +297,11 @@ export async function POST(
             description: t.description ?? null,
             type: t.type ?? null,
             jenisUnitId: t.jenisUnitId ?? null,
-            skkniId: t.skkniId ?? null,
-            skkniUnitId: t.skkniUnitId ?? null,
+            skkniId: t.skkniId && validDocSet.has(t.skkniId) ? t.skkniId : null,
+            skkniUnitId:
+              t.skkniUnitId && validUnitSet.has(t.skkniUnitId)
+                ? t.skkniUnitId
+                : null,
             isManualEdited: false,
           })),
           skipDuplicates: true,
